@@ -1,5 +1,6 @@
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { Bell, ChevronRight } from 'lucide-react'
+import { Bell, ChevronRight, Eye } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import type { Metadata } from 'next'
 
@@ -10,13 +11,16 @@ export default async function NoticePage() {
   const supabase = createClient()
   const { data: rawNotices } = await supabase
     .from('notices')
-    .select('id, title, content, is_pinned, created_at')
+    .select('id, title, content, is_pinned, view_count, created_at')
     .eq('is_active', true)
     .order('is_pinned', { ascending: false })
     .order('created_at', { ascending: false })
     .limit(50)
 
-  type Notice = { id: string; title: string; content: string; is_pinned: boolean; created_at: string }
+  type Notice = {
+    id: string; title: string; content: string | null
+    is_pinned: boolean; view_count: number | null; created_at: string
+  }
   const notices = rawNotices as unknown as Notice[] | null
 
   return (
@@ -34,7 +38,11 @@ export default async function NoticePage() {
       {notices && notices.length > 0 ? (
         <div className="flex flex-col divide-y divide-gray-100 rounded-2xl bg-white shadow-sm overflow-hidden">
           {notices.map((notice) => (
-            <div key={notice.id} className="flex items-center gap-4 px-5 py-4 hover:bg-silver/50 transition">
+            <Link
+              key={notice.id}
+              href={`/notice/${notice.id}`}
+              className="flex items-center gap-4 px-5 py-4 hover:bg-silver/50 transition"
+            >
               {notice.is_pinned && (
                 <span className="shrink-0 rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-white">
                   공지
@@ -42,10 +50,15 @@ export default async function NoticePage() {
               )}
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-navy truncate">{notice.title}</p>
-                <p className="mt-0.5 text-xs text-gray-400">{formatDate(notice.created_at)}</p>
+                <p className="mt-0.5 flex items-center gap-2 text-xs text-gray-400">
+                  <span>{formatDate(notice.created_at)}</span>
+                  <span className="inline-flex items-center gap-1">
+                    <Eye className="h-3 w-3" /> {(notice.view_count ?? 0).toLocaleString()}
+                  </span>
+                </p>
               </div>
               <ChevronRight className="h-4 w-4 text-gray-300 shrink-0" />
-            </div>
+            </Link>
           ))}
         </div>
       ) : (

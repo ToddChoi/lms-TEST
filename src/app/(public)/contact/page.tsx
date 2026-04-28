@@ -6,7 +6,11 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 
 export default function ContactPage() {
-  const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' })
+  const [form, setForm] = useState({
+    name: '', email: '', phone: '', subject: '', message: '',
+    privacyAgree: false,
+    honeypot: '',
+  })
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState('')
@@ -17,14 +21,25 @@ export default function ContactPage() {
       setError('이름, 이메일, 문의 내용은 필수입니다.')
       return
     }
+    if (!form.privacyAgree) {
+      setError('개인정보 수집·이용 동의가 필요합니다.')
+      return
+    }
     setLoading(true)
     setError('')
 
-    // Supabase contacts 테이블에 저장
     const res = await fetch('/api/contacts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
+      body: JSON.stringify({
+        name: form.name,
+        email: form.email,
+        phone: form.phone,
+        subject: form.subject,
+        message: form.message,
+        type: 'general',
+        honeypot: form.honeypot,
+      }),
     })
 
     setLoading(false)
@@ -77,12 +92,21 @@ export default function ContactPage() {
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
               />
             </div>
-            <Input
-              label="제목"
-              placeholder="문의 제목"
-              value={form.subject}
-              onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))}
-            />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Input
+                label="연락처"
+                type="tel"
+                placeholder="010-0000-0000"
+                value={form.phone}
+                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+              />
+              <Input
+                label="제목"
+                placeholder="문의 제목"
+                value={form.subject}
+                onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))}
+              />
+            </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">문의 내용 *</label>
               <textarea
@@ -93,6 +117,28 @@ export default function ContactPage() {
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent resize-none"
               />
             </div>
+
+            {/* 스팸 봇 차단용 honeypot — 사람에겐 안 보이지만 봇은 채워서 식별됨 */}
+            <input
+              type="text"
+              tabIndex={-1}
+              autoComplete="off"
+              aria-hidden="true"
+              value={form.honeypot}
+              onChange={(e) => setForm((f) => ({ ...f, honeypot: e.target.value }))}
+              className="hidden"
+            />
+
+            <label className="flex items-center gap-2 text-sm text-gray-600">
+              <input
+                type="checkbox"
+                checked={form.privacyAgree}
+                onChange={(e) => setForm((f) => ({ ...f, privacyAgree: e.target.checked }))}
+                className="h-4 w-4 accent-accent"
+              />
+              개인정보 수집·이용에 동의합니다 (필수)
+            </label>
+
             {error && (
               <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>
             )}

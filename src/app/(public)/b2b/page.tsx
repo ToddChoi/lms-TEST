@@ -1,6 +1,5 @@
-import Link from 'next/link'
-import { Building2, CheckCircle, ArrowRight, BarChart3, Users, Award, BookOpen } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
+import { Building2, CheckCircle, BarChart3, Users, Award, BookOpen } from 'lucide-react'
+import B2BContactForm from '@/components/public/B2BContactForm'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -33,11 +32,11 @@ export default function B2BPage() {
             AI 시대에 필요한 실무 역량을 체계적으로 키워드립니다.
           </p>
           <div className="mt-8">
-            <Link href="/contact">
-              <Button size="lg" className="bg-accent hover:bg-accent-light">
-                도입 상담 신청 <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
+            <a href="#b2b-form">
+              <button className="inline-flex items-center gap-2 rounded-xl bg-accent hover:bg-accent-light px-6 py-3 text-sm font-medium text-white transition">
+                아래에서 상담 신청하기 ↓
+              </button>
+            </a>
           </div>
         </div>
       </section>
@@ -60,23 +59,22 @@ export default function B2BPage() {
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="bg-white py-16">
-        <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-2xl font-bold text-navy">지금 바로 도입 상담을 신청하세요</h2>
-          <p className="mt-3 text-gray-500">담당자가 빠르게 연락드립니다.</p>
-          <ul className="mt-6 flex flex-col gap-2 items-center text-sm text-gray-600">
-            {['무료 데모 제공', '도입 후 전담 CS 지원', '기업 규모에 맞는 요금제'].map((item) => (
-              <li key={item} className="flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 text-green-500 shrink-0" /> {item}
-              </li>
-            ))}
-          </ul>
-          <Link href="/contact" className="mt-8 inline-block">
-            <Button size="lg" className="bg-accent hover:bg-accent-light">
-              문의하기 <ArrowRight className="h-4 w-4" />
-            </Button>
-          </Link>
+      {/* CTA + 상담 신청 폼 */}
+      <section id="b2b-form" className="bg-white py-16">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-navy">지금 바로 도입 상담을 신청하세요</h2>
+            <p className="mt-3 text-gray-500">담당자가 빠르게 연락드립니다.</p>
+            <ul className="mt-6 mb-8 flex flex-col gap-2 items-center text-sm text-gray-600">
+              {['무료 데모 제공', '도입 후 전담 CS 지원', '기업 규모에 맞는 요금제'].map((item) => (
+                <li key={item} className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500 shrink-0" /> {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <B2BContactForm />
         </div>
       </section>
     </div>
