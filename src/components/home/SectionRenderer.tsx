@@ -1,9 +1,10 @@
 import Link from 'next/link'
-import { ArrowRight, Users, BookOpen, Award, Building2, CheckCircle } from 'lucide-react'
+import { ArrowRight, Users, BookOpen, Award } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { CourseThumb } from '@/components/courses/CourseThumb'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { formatDuration } from '@/lib/utils'
+import BannerSlider from './BannerSlider'
 
 // ──────────────────────────────────────────
 // 타입 정의
@@ -127,28 +128,21 @@ function HeroSection({ config }: { config: Record<string, unknown> }) {
 // Banner Slider (클라이언트 슬라이더는 별도 컴포넌트로 분리 가능)
 // 현재는 첫 배너를 전체 폭 이미지로 표시하고 나머지는 하단에 도트 표시
 // ──────────────────────────────────────────
-function BannerSection({ banners }: { config: Record<string, unknown>; banners: BannerData[] }) {
+function BannerSection({ config, banners }: { config: Record<string, unknown>; banners: BannerData[] }) {
   if (banners.length === 0) return null
+  const autoplay   = config.autoplay     !== false
+  const interval   = Number(config.interval ?? 5000)
+  const showArrows = config.show_arrows  !== false
+  const showDots   = config.show_dots    !== false
 
-  const banner = banners[0]
   return (
-    <section className="w-full">
-      {banner.link_url ? (
-        <a href={banner.link_url} target={banner.link_target} rel="noopener noreferrer" className="block">
-          {banner.image_url ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={banner.image_url} alt={banner.title} className="w-full max-h-[480px] object-cover" />
-          ) : (
-            <div className="w-full h-48 bg-gradient-to-r from-accent-pale to-accent/20 flex items-center justify-center">
-              <p className="text-navy font-semibold">{banner.title}</p>
-            </div>
-          )}
-        </a>
-      ) : banner.image_url ? (
-        /* eslint-disable-next-line @next/next/no-img-element */
-        <img src={banner.image_url} alt={banner.title} className="w-full max-h-[480px] object-cover" />
-      ) : null}
-    </section>
+    <BannerSlider
+      banners={banners}
+      autoplay={autoplay}
+      interval={interval}
+      showArrows={showArrows}
+      showDots={showDots}
+    />
   )
 }
 

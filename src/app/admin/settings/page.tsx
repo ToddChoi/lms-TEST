@@ -9,28 +9,30 @@ interface AllSettings {
   site_name: string
   site_description: string
   // 디자인
-  main_color: string
+  primary_color: string
   logo_url: string
-  footer_copyright: string
+  footer_text: string
   og_image_url: string
   favicon_url: string
   // 연락처
   contact_email: string
   contact_phone: string
   contact_address: string
+  kakao_channel_url: string
 }
 
 const defaults: AllSettings = {
   site_name: '',
   site_description: '',
-  main_color: '#2D7DD2',
+  primary_color: '#2D7DD2',
   logo_url: '',
-  footer_copyright: 'Ingrow LMS. All rights reserved.',
+  footer_text: 'Ingrow LMS. All rights reserved.',
   og_image_url: '',
   favicon_url: '',
   contact_email: '',
   contact_phone: '',
   contact_address: '',
+  kakao_channel_url: '',
 }
 
 const GROUPS: { key: Group; label: string }[] = [
@@ -41,8 +43,8 @@ const GROUPS: { key: Group; label: string }[] = [
 
 const GROUP_KEYS: Record<Group, (keyof AllSettings)[]> = {
   general: ['site_name', 'site_description'],
-  appearance: ['main_color', 'logo_url', 'footer_copyright', 'og_image_url', 'favicon_url'],
-  contact: ['contact_email', 'contact_phone', 'contact_address'],
+  appearance: ['primary_color', 'logo_url', 'footer_text', 'og_image_url', 'favicon_url'],
+  contact: ['contact_email', 'contact_phone', 'contact_address', 'kakao_channel_url'],
 }
 
 export default function AdminSettingsPage() {
@@ -60,14 +62,16 @@ export default function AdminSettingsPage() {
         setSettings({
           site_name: data.site_name ?? '',
           site_description: data.site_description ?? '',
-          main_color: data.main_color ?? '#2D7DD2',
+          // 신규 키 우선, 구 키(main_color/footer_copyright)도 호환
+          primary_color: data.primary_color ?? data.main_color ?? '#2D7DD2',
           logo_url: data.logo_url ?? '',
-          footer_copyright: data.footer_copyright ?? 'Ingrow LMS. All rights reserved.',
+          footer_text: data.footer_text ?? data.footer_copyright ?? 'Ingrow LMS. All rights reserved.',
           og_image_url: data.og_image_url ?? '',
           favicon_url: data.favicon_url ?? '',
           contact_email: data.contact_email ?? '',
           contact_phone: data.contact_phone ?? '',
           contact_address: data.contact_address ?? '',
+          kakao_channel_url: data.kakao_channel_url ?? '',
         })
         setLoading(false)
       })
@@ -182,20 +186,20 @@ export default function AdminSettingsPage() {
               <div className="flex items-center gap-3">
                 <input
                   type="color"
-                  value={settings.main_color}
-                  onChange={(e) => set('main_color', e.target.value)}
+                  value={settings.primary_color}
+                  onChange={(e) => set('primary_color', e.target.value)}
                   className="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer p-0.5"
                 />
                 <input
                   type="text"
-                  value={settings.main_color}
-                  onChange={(e) => set('main_color', e.target.value)}
+                  value={settings.primary_color}
+                  onChange={(e) => set('primary_color', e.target.value)}
                   className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-36 font-mono focus:outline-none focus:ring-2 focus:ring-[#2D7DD2]"
                   placeholder="#2D7DD2"
                 />
                 <div
                   className="h-10 w-20 rounded-lg border border-gray-200"
-                  style={{ backgroundColor: settings.main_color }}
+                  style={{ backgroundColor: settings.primary_color }}
                 />
               </div>
             </div>
@@ -223,11 +227,11 @@ export default function AdminSettingsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">저작권 문구</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">푸터 문구</label>
               <input
                 type="text"
-                value={settings.footer_copyright}
-                onChange={(e) => set('footer_copyright', e.target.value)}
+                value={settings.footer_text}
+                onChange={(e) => set('footer_text', e.target.value)}
                 className={inputCls}
                 placeholder="Ingrow LMS. All rights reserved."
               />
@@ -290,6 +294,17 @@ export default function AdminSettingsPage() {
                 className={inputCls}
                 placeholder="서울특별시 ..."
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">카카오 채널 URL</label>
+              <input
+                type="url"
+                value={settings.kakao_channel_url}
+                onChange={(e) => set('kakao_channel_url', e.target.value)}
+                className={inputCls}
+                placeholder="https://pf.kakao.com/..."
+              />
+              <p className="text-xs text-gray-400 mt-1">설정하면 푸터/문의 영역에서 카카오톡 채널 링크로 사용됩니다.</p>
             </div>
           </>
         )}
