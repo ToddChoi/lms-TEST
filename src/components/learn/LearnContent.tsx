@@ -2,9 +2,11 @@
 
 import { useState, useCallback } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, BookOpen } from 'lucide-react'
+import { ChevronLeft, ChevronRight, BookOpen, ListTree, NotebookPen } from 'lucide-react'
 import { VideoPlayer } from '@/components/learn/VideoPlayer'
 import { CurriculumSidebar } from '@/components/learn/CurriculumSidebar'
+import { NotesPanel } from '@/components/learn/NotesPanel'
+import { ConfirmDialogHost } from '@/components/ui/ConfirmDialog'
 import { formatDuration } from '@/lib/utils'
 
 interface LessonItem {
@@ -38,6 +40,8 @@ interface Props {
   nextLessonId: string | null
 }
 
+type SideTab = 'curriculum' | 'notes'
+
 export function LearnContent({
   courseId,
   currentLesson,
@@ -49,10 +53,9 @@ export function LearnContent({
   prevLessonId,
   nextLessonId,
 }: Props) {
-  // sections 상태를 클라이언트에서 관리 → VideoPlayer 완료/진도 즉시 반영
   const [sections, setSections] = useState<SectionWithProgress[]>(initialSections)
+  const [tab, setTab] = useState<SideTab>('curriculum')
 
-  // 강의 완료 시 → 사이드바 체크마크 즉시 업데이트
   const handleComplete = useCallback(() => {
     setSections((prev) =>
       prev.map((s) => ({
@@ -64,7 +67,6 @@ export function LearnContent({
     )
   }, [currentLesson.id])
 
-  // 10초마다 진도 저장 시 → 사이드바 watched_seconds 업데이트
   const handleProgressSave = useCallback((seconds: number) => {
     setSections((prev) =>
       prev.map((s) => ({
@@ -145,15 +147,52 @@ export function LearnContent({
         </div>
       </main>
 
-      {/* 우측: 커리큘럼 사이드바 */}
-      <div className="w-full lg:w-80 lg:shrink-0 lg:sticky lg:top-20 lg:max-h-[calc(100vh-5rem)]">
-        <CurriculumSidebar
-          sections={sections}
-          currentLessonId={currentLesson.id}
-          courseId={courseId}
-          isEnrolled={isEnrolled}
-        />
+      {/* 우측: 사이드 탭 (커리큘럼 / 노트) */}
+      <div className="w-full lg:w-80 lg:shrink-0 lg:sticky lg:top-20 lg:max-h-[calc(100vh-5rem)] flex flex-col">
+        {/* 탭 헤더 */}
+        <div className="mb-2 flex gap-1 rounded-xl bg-white p-1 shadow-sm">
+          <TabButton active={tab === 'curriculum'} onClick={() => setTab('curriculum')}>
+            <ListTree className="h-4 w-4" /> 커리큘럼
+          </TabButton>
+          <TabButton active={tab === 'notes'} onClick={() => setTab('notes')}>
+            <NotebookPen className="h-4 w-4" /> 노트
+          </TabButton>
+        </div>
+
+        {/* 탭 내용 */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          {tab === 'curriculum' ? (
+            <CurriculumSidebar
+              sections={sections}
+              currentLessonId={currentLesson.id}
+              courseId={courseId}
+              isEnrolled={isEnrolled}
+            />
+          ) : (
+            <NotesPanel lessonId={currentLesson.id} courseId={courseId} />
+          )}
+        </div>
       </div>
+
+      {/* 노트 삭제 등 confirm 다이얼로그 호스트 */}
+      <ConfirmDialogHost />
     </div>
+  )
+}
+
+function TabButton({
+  active, onClick, children,
+}: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition ${
+        active
+          ? 'bg-accent text-white'
+          : 'text-gray-500 hover:text-navy'
+      }`}
+    >
+      {children}
+    </button>
   )
 }
