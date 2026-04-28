@@ -8,6 +8,9 @@
   :root {
     --background: 0 0% 100%;
     --foreground: 215 50% 14%;
+
+    /* 브랜드 메인 컬러 (사이트 설정의 primary_color 로 덮어쓸 수 있음) */
+    --color-primary-rgb: 45 125 210; /* #2D7DD2 */
   }
 
   * {
@@ -21,6 +24,13 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-bold tracking-tight;
   }
+
+  /* 키보드 사용자에게만 보이는 포커스 링 */
+  :focus-visible {
+    outline: 2px solid rgb(var(--color-primary-rgb));
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
 }
 
 @layer utilities {
@@ -30,5 +40,22 @@
   }
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Skip-to-content 링크 — Tab 키로 진입 시에만 보이고, 클릭하면 본문으로 점프 */
+  .skip-to-content {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    z-index: 1000;
+    padding: 8px 16px;
+    background: #0B1F3A;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 0 0 8px 0;
+  }
+  .skip-to-content:focus {
+    left: 0;
   }
 }

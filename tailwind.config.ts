@@ -15,7 +15,8 @@ const config: Config = {
           light: '#243F65',
         },
         accent: {
-          DEFAULT: '#2D7DD2',
+          // 사이트 설정 → primary_color 변경 시 모든 bg-accent / text-accent 등이 즉시 반영됨.
+          DEFAULT: 'rgb(var(--color-primary-rgb) / <alpha-value>)',
           light: '#4A9AEF',
           pale: '#E8F2FC',
         },
