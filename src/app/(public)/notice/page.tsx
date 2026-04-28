@@ -11,7 +11,7 @@ export default async function NoticePage() {
   const { data: rawNotices } = await supabase
     .from('notices')
     .select('id, title, content, is_pinned, created_at')
-    .eq('is_published', true)
+    .eq('is_active', true)
     .order('is_pinned', { ascending: false })
     .order('created_at', { ascending: false })
     .limit(50)

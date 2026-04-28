@@ -10,7 +10,7 @@ export default async function FaqPage() {
   const { data: rawFaqs } = await supabase
     .from('faqs')
     .select('id, question, answer, sort_order')
-    .eq('is_published', true)
+    .eq('is_active', true)
     .order('sort_order', { ascending: true })
     .limit(50)
 

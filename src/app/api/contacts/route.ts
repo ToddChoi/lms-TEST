@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
 
 function makeAdminClient() {
   return createAdmin(
@@ -19,10 +20,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '필수 항목이 누락됐습니다.' }, { status: 400 })
   }
 
-  const admin = makeAdminClient()
-  const { error } = await (admin as any)
+  // 로그인 유저면 user_id도 저장
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // DB 스키마: title(제목), content(내용), user_id
+  // name/email을 content 상단에 포함
+  const title = subject?.trim() || '이용문의'
+  const content = `[이름] ${name.trim()}\n[이메일] ${email.trim()}\n\n${message.trim()}`
+
+  const admin = makeAdminClient() as any
+  const { error } = await admin
     .from('contacts')
-    .insert({ name: name.trim(), email: email.trim(), subject: subject?.trim() ?? '', message: message.trim() })
+    .insert({
+      title,
+      content,
+      user_id: user?.id ?? null,
+      status: 'pending',
+    })
 
   if (error) {
     console.error('contacts insert error:', error)

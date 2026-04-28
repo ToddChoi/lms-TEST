@@ -13,6 +13,9 @@ import {
   Tag,
   Upload,
   CreditCard,
+  HelpCircle,
+  MessageSquare,
+  Image,
 } from 'lucide-react'
 import { AdminSidebarBottom } from '@/components/admin/AdminSidebarBottom'
 import { AdminNavLink } from '@/components/admin/AdminNavLink'
@@ -36,6 +39,9 @@ const ADMIN_NAV = [
   { href: '/admin/bulk', label: '일괄 업로드', icon: Upload },
   { href: '/admin/statistics', label: '통계', icon: BarChart3 },
   { href: '/admin/notices', label: '공지사항', icon: Bell },
+  { href: '/admin/faqs', label: 'FAQ', icon: HelpCircle },
+  { href: '/admin/contacts', label: '이용문의', icon: MessageSquare },
+  { href: '/admin/banners', label: '배너 관리', icon: Image },
   { href: '/admin/categories', label: '카테고리', icon: Tag },
   { href: '/admin/settings', label: '사이트 설정', icon: Settings },
 ]
