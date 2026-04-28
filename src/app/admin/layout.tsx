@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import {
   LayoutDashboard,
@@ -16,6 +15,7 @@ import {
   CreditCard,
 } from 'lucide-react'
 import { AdminSidebarBottom } from '@/components/admin/AdminSidebarBottom'
+import { AdminNavLink } from '@/components/admin/AdminNavLink'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -79,14 +79,13 @@ export default async function AdminLayout({
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           <div className="flex flex-col gap-0.5">
             {ADMIN_NAV.map((item) => (
-              <Link
+              <AdminNavLink
                 key={item.href}
                 href={item.href}
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-silver hover:text-navy"
-              >
-                <item.icon className="h-4 w-4 shrink-0" />
-                {item.label}
-              </Link>
+                label={item.label}
+                icon={item.icon}
+                exact={item.exact}
+              />
             ))}
           </div>
         </nav>

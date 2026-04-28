@@ -4,11 +4,19 @@ import { redirect } from 'next/navigation'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { formatDate, formatDuration } from '@/lib/utils'
 import { Plus, Pencil, BookOpen } from 'lucide-react'
+import { Suspense } from 'react'
+import { Pagination } from '@/components/ui/Pagination'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: '강좌 관리' }
 
-export default async function AdminCoursesPage() {
+const PAGE_SIZE = 20
+
+export default async function AdminCoursesPage({
+  searchParams,
+}: {
+  searchParams: { page?: string; q?: string }
+}) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -24,15 +32,24 @@ export default async function AdminCoursesPage() {
     redirect('/')
   }
 
-  const { data: rawCourses } = await supabase
+  const page = Math.max(1, parseInt(searchParams.page ?? '1', 10))
+  const q = searchParams.q ?? ''
+  const from = (page - 1) * PAGE_SIZE
+
+  let query = supabase
     .from('courses')
     .select(`
       id, title, status, price, total_duration,
       enroll_start, enroll_end, created_at,
       categories (name),
       instructor:profiles!instructor_id (name)
-    `)
+    `, { count: 'exact' })
     .order('created_at', { ascending: false })
+    .range(from, from + PAGE_SIZE - 1)
+
+  if (q) query = query.ilike('title', `%${q}%`)
+
+  const { data: rawCourses, count } = await query
   const courses = rawCourses as unknown as any[] | null
 
   return (
@@ -40,7 +57,7 @@ export default async function AdminCoursesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-navy">강좌 관리</h1>
-          <p className="mt-1 text-sm text-gray-500">총 {courses?.length ?? 0}개</p>
+          <p className="mt-1 text-sm text-gray-500">총 {count ?? 0}개</p>
         </div>
         <Link
           href="/admin/courses/new"
@@ -118,6 +135,14 @@ export default async function AdminCoursesPage() {
           </tbody>
         </table>
       </div>
+
+      {(count ?? 0) > PAGE_SIZE && (
+        <div className="mt-6 flex justify-center">
+          <Suspense>
+            <Pagination totalCount={count ?? 0} pageSize={PAGE_SIZE} basePath="/admin/courses" />
+          </Suspense>
+        </div>
+      )}
     </div>
   )
 }

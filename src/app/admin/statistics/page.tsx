@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { formatDate } from '@/lib/utils'
 import { DailyEnrollChart, CategoryBarChart, CompletionPieChart } from '@/components/admin/StatCharts'
+import dayjs from '@/lib/dayjs'
 
 export default async function AdminStatisticsPage() {
   const supabase = createClient()
@@ -23,8 +24,7 @@ export default async function AdminStatisticsPage() {
     supabase.from('certificates').select('*', { count: 'exact', head: true }),
   ])
 
-  const now = new Date()
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+  const monthStart = dayjs().tz('Asia/Seoul').startOf('month').toISOString()
   const { count: monthEnrollments } = await supabase
     .from('enrollments')
     .select('*', { count: 'exact', head: true })

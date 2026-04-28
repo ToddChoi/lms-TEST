@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { Users, BookOpen, Award, TrendingUp } from 'lucide-react'
 import type { Metadata } from 'next'
-import dayjs from 'dayjs'
+import dayjs from '@/lib/dayjs'
 
 export const metadata: Metadata = { title: '대시보드' }
 

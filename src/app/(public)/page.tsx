@@ -129,8 +129,20 @@ export default async function HomePage() {
                     className="group flex flex-col rounded-2xl bg-white shadow-sm transition-shadow hover:shadow-md"
                   >
                     {/* 썸네일 */}
-                    <div className="flex h-40 items-center justify-center rounded-t-2xl bg-gradient-to-br from-accent-pale to-accent/10">
-                      <BookOpen className="h-12 w-12 text-accent/40" />
+                    <div className="relative h-40 overflow-hidden rounded-t-2xl bg-gradient-to-br from-accent-pale to-accent/10">
+                      {course.thumbnail_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={course.thumbnail_url}
+                          alt={course.title}
+                          className="h-full w-full object-cover"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center">
+                          <BookOpen className="h-12 w-12 text-accent/40" />
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex flex-1 flex-col p-4">

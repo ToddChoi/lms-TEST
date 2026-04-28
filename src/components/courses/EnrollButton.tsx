@@ -105,7 +105,8 @@ export function EnrollButton({
       }
 
       router.push(`/my/courses/${courseId}/learn`)
-      router.refresh()
+      // push 후 약간의 딜레이를 두고 refresh하여 수강 상태가 반영되도록 함
+      setTimeout(() => router.refresh(), 300)
     } catch {
       setError('네트워크 오류가 발생했습니다.')
     } finally {

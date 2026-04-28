@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, usePathname } from 'next/navigation'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -11,17 +11,20 @@ interface PaginationProps {
   basePath?: string
 }
 
-export function Pagination({ totalCount, pageSize = 12, basePath = '' }: PaginationProps) {
+export function Pagination({ totalCount, pageSize = 12, basePath }: PaginationProps) {
   const searchParams = useSearchParams()
+  const pathname = usePathname()
   const currentPage = Number(searchParams.get('page') || 1)
   const totalPages = Math.ceil(totalCount / pageSize)
 
   if (totalPages <= 1) return null
 
+  const base = basePath ?? pathname
+
   const makeHref = (page: number) => {
     const params = new URLSearchParams(searchParams.toString())
     params.set('page', String(page))
-    return `${basePath}/courses?${params.toString()}`
+    return `${base}?${params.toString()}`
   }
 
   // 표시할 페이지 번호 범위 계산
