@@ -1,8 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { Users } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { Suspense } from 'react'
+import { Pagination } from '@/components/ui/Pagination'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 const PAGE_SIZE = 20
 
@@ -106,15 +109,8 @@ export default async function AdminUsersPage({
     created_at: string
   }[] | null
 
-  const totalPages = Math.ceil((count ?? 0) / PAGE_SIZE)
-
-  function pageUrl(p: number) {
-    const params = new URLSearchParams()
-    if (q) params.set('q', q)
-    if (roleFilter) params.set('role', roleFilter)
-    params.set('page', String(p))
-    return `/admin/users?${params.toString()}`
-  }
+  const total = count ?? 0
+  const isFiltered = !!q || !!roleFilter
 
   return (
     <div className="p-8">
@@ -129,84 +125,64 @@ export default async function AdminUsersPage({
         </Suspense>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-[#F4F6FA] text-[#0B1F3A]">
-            <tr>
-              <th className="px-4 py-3 text-left font-semibold">이름</th>
-              <th className="px-4 py-3 text-left font-semibold">이메일</th>
-              <th className="px-4 py-3 text-left font-semibold">역할</th>
-              <th className="px-4 py-3 text-left font-semibold">가입일</th>
-              <th className="px-4 py-3 text-center font-semibold">활성</th>
-              <th className="px-4 py-3 text-center font-semibold">상세</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {(users ?? []).length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
-                  회원이 없습니다.
-                </td>
-              </tr>
-            ) : (
-              (users ?? []).map((u) => (
-                <tr key={u.id} className="hover:bg-[#E8F2FC]/30 transition">
-                  <td className="px-4 py-3 font-medium text-[#0B1F3A]">
-                    {u.name ?? '-'}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">{u.email ?? '-'}</td>
-                  <td className="px-4 py-3">{roleBadge(u.role)}</td>
-                  <td className="px-4 py-3 text-gray-500">{formatDate(u.created_at)}</td>
-                  <td className="px-4 py-3 text-center">
-                    {u.is_active ? (
-                      <span className="text-green-500 font-bold">✓</span>
-                    ) : (
-                      <span className="text-red-400 font-bold">✗</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <Link
-                      href={`/admin/users/${u.id}`}
-                      className="inline-block bg-[#E8F2FC] text-[#2D7DD2] px-3 py-1 rounded-lg text-xs font-medium hover:bg-[#2D7DD2] hover:text-white transition"
-                    >
-                      상세
-                    </Link>
-                  </td>
+      {(users ?? []).length === 0 ? (
+        <EmptyState
+          icon={Users}
+          title={isFiltered ? '검색 결과가 없습니다' : '아직 등록된 회원이 없습니다'}
+          description={
+            isFiltered
+              ? '다른 검색어를 시도하거나 필터를 초기화해보세요.'
+              : '회원이 가입하면 이곳에 표시됩니다.'
+          }
+        />
+      ) : (
+        <>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-[#F4F6FA] text-[#0B1F3A]">
+                <tr>
+                  <th className="px-4 py-3 text-left font-semibold">이름</th>
+                  <th className="px-4 py-3 text-left font-semibold">이메일</th>
+                  <th className="px-4 py-3 text-left font-semibold">역할</th>
+                  <th className="px-4 py-3 text-left font-semibold">가입일</th>
+                  <th className="px-4 py-3 text-center font-semibold">활성</th>
+                  <th className="px-4 py-3 text-center font-semibold">상세</th>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {(users ?? []).map((u) => (
+                  <tr key={u.id} className="hover:bg-[#E8F2FC]/30 transition">
+                    <td className="px-4 py-3 font-medium text-[#0B1F3A]">
+                      {u.name ?? '-'}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">{u.email ?? '-'}</td>
+                    <td className="px-4 py-3">{roleBadge(u.role)}</td>
+                    <td className="px-4 py-3 text-gray-500">{formatDate(u.created_at)}</td>
+                    <td className="px-4 py-3 text-center">
+                      {u.is_active ? (
+                        <span className="text-green-500 font-bold">✓</span>
+                      ) : (
+                        <span className="text-red-400 font-bold">✗</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <Link
+                        href={`/admin/users/${u.id}`}
+                        className="inline-block bg-[#E8F2FC] text-[#2D7DD2] px-3 py-1 rounded-lg text-xs font-medium hover:bg-[#2D7DD2] hover:text-white transition"
+                      >
+                        상세
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-      {totalPages > 1 && (
-        <div className="flex justify-center gap-1 mt-6">
-          {page > 1 && (
-            <Link href={pageUrl(page - 1)} className="px-3 py-1.5 rounded-lg border border-gray-300 text-sm hover:bg-gray-50">
-              이전
-            </Link>
-          )}
-          {Array.from({ length: totalPages }, (_, i) => i + 1)
-            .filter((p) => Math.abs(p - page) <= 2)
-            .map((p) => (
-              <Link
-                key={p}
-                href={pageUrl(p)}
-                className={`px-3 py-1.5 rounded-lg border text-sm transition ${
-                  p === page
-                    ? 'bg-[#2D7DD2] text-white border-[#2D7DD2]'
-                    : 'border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                {p}
-              </Link>
-            ))}
-          {page < totalPages && (
-            <Link href={pageUrl(page + 1)} className="px-3 py-1.5 rounded-lg border border-gray-300 text-sm hover:bg-gray-50">
-              다음
-            </Link>
-          )}
-        </div>
+          <div className="mt-6">
+            <Pagination totalCount={total} pageSize={PAGE_SIZE} />
+          </div>
+        </>
       )}
     </div>
   )

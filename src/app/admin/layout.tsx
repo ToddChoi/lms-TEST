@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { AdminSidebarBottom } from '@/components/admin/AdminSidebarBottom'
 import { AdminNavLink } from '@/components/admin/AdminNavLink'
+import { ConfirmDialogHost } from '@/components/ui/ConfirmDialog'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -106,6 +107,9 @@ export default async function AdminLayout({
       <div className="flex flex-1 flex-col overflow-hidden">
         <main className="flex-1 overflow-y-auto bg-silver p-6">{children}</main>
       </div>
+
+      {/* 전역 confirm 대체 다이얼로그 */}
+      <ConfirmDialogHost />
     </div>
   )
 }
