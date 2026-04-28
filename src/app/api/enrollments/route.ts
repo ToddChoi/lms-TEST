@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { Database } from '@/types/database'
+import { sendEmail } from '@/lib/email/send'
+import { EnrollmentEmail } from '@/lib/email/templates/enrollment'
 
 export async function POST(request: Request) {
   const cookieStore = cookies()
@@ -95,6 +97,32 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.json({ error: '수강 신청에 실패했습니다.' }, { status: 500 })
+  }
+
+  // 수강 신청 완료 메일 (실패해도 응답엔 영향 없음)
+  try {
+    const { data: rawCourseInfo } = await supabase
+      .from('courses').select('title').eq('id', courseId).single()
+    const { data: rawProfile } = await supabase
+      .from('profiles').select('name, email').eq('id', user.id).single()
+    const courseInfo = rawCourseInfo as unknown as { title: string } | null
+    const profile = rawProfile as unknown as { name: string | null; email: string | null } | null
+    const recipient = profile?.email || user.email
+    if (recipient && courseInfo) {
+      await sendEmail({
+        to: recipient,
+        subject: `[Ingrow LMS] ${courseInfo.title} 수강 신청 완료`,
+        react: EnrollmentEmail({
+          name: profile?.name ?? null,
+          courseTitle: courseInfo.title,
+          courseId,
+        }),
+        template: 'enrollment',
+        userId: user.id,
+      })
+    }
+  } catch (e) {
+    console.warn('[enrollment email] failed:', e)
   }
 
   return NextResponse.json({ success: true, enrollmentId: enrollment.id }, { status: 201 })

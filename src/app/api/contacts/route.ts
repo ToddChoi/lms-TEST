@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
+import { sendEmail } from '@/lib/email/send'
+import { ContactAdminEmail } from '@/lib/email/templates/contact-admin'
+import { ContactUserEmail } from '@/lib/email/templates/contact-user'
 
 function makeAdminClient() {
   return createAdmin(
@@ -90,6 +93,46 @@ export async function POST(req: NextRequest) {
   if (error) {
     console.error('contacts insert error:', error)
     return NextResponse.json({ error: '저장에 실패했습니다.' }, { status: 500 })
+  }
+
+  // ─── 알림 메일 발송 (실패해도 응답엔 영향 없음) ───
+  try {
+    // 관리자 메일 주소: site_settings.contact_email → 없으면 EMAIL_FROM_ADDRESS
+    const { data: rawSetting } = await supabase
+      .from('site_settings')
+      .select('value')
+      .eq('key', 'contact_email')
+      .maybeSingle()
+    const adminEmail = (rawSetting as unknown as { value: string } | null)?.value
+      || process.env.EMAIL_FROM_ADDRESS
+      || null
+
+    // 1) 관리자에게 알림
+    if (adminEmail) {
+      await sendEmail({
+        to: adminEmail,
+        subject: `[문의 접수] ${title}`,
+        react: ContactAdminEmail({
+          type, name: name.trim(), email: email.trim(),
+          phone: phone?.trim() ?? null,
+          company: company?.trim() ?? null,
+          subject: title, message: message.trim(),
+        }),
+        template: 'contact-admin',
+        userId: user?.id ?? null,
+      })
+    }
+
+    // 2) 문의자에게 접수 확인
+    await sendEmail({
+      to: email.trim(),
+      subject: '[Ingrow LMS] 문의가 정상 접수되었습니다',
+      react: ContactUserEmail({ name: name.trim(), subject: title }),
+      template: 'contact-user',
+      userId: user?.id ?? null,
+    })
+  } catch (e) {
+    console.warn('[contact email] failed:', e)
   }
 
   return NextResponse.json({ ok: true })

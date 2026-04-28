@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { Database } from '@/types/database'
+import { sendEmail } from '@/lib/email/send'
+import { CompletionEmail } from '@/lib/email/templates/completion'
+import { CertificateEmail } from '@/lib/email/templates/certificate'
 
 const COMPLETION_THRESHOLD = 0.8 // 80% 이상이면 강좌 수료
 
@@ -82,15 +85,62 @@ export async function POST(request: Request) {
         .from('certificates').select('id').eq('user_id', user.id).eq('course_id', courseId).maybeSingle()
       const existingCert = rawExistingCert as unknown as { id: string } | null
 
+      let newCertId: string | null = null
       if (!existingCert) {
         const today = new Date()
         const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '')
         const rand = Math.random().toString(36).substring(2, 8).toUpperCase()
         const certNumber = `CERT-${dateStr}-${rand}`
 
-        await (supabase as any)
+        const { data: rawNewCert } = await (supabase as any)
           .from('certificates')
           .insert({ user_id: user.id, course_id: courseId, cert_number: certNumber })
+          .select('id')
+          .single()
+        newCertId = (rawNewCert as { id: string } | null)?.id ?? null
+      }
+
+      // 수료 + (필요시) 수료증 메일 발송
+      try {
+        const { data: rawCourseInfo } = await supabase
+          .from('courses').select('title').eq('id', courseId).single()
+        const { data: rawProfile } = await supabase
+          .from('profiles').select('name, email').eq('id', user.id).single()
+        const courseInfo = rawCourseInfo as unknown as { title: string } | null
+        const profile = rawProfile as unknown as { name: string | null; email: string | null } | null
+        const recipient = profile?.email || user.email
+
+        if (recipient && courseInfo) {
+          // 1) 수료 안내
+          await sendEmail({
+            to: recipient,
+            subject: `[Ingrow LMS] ${courseInfo.title} 강좌 수료를 축하합니다`,
+            react: CompletionEmail({
+              name: profile?.name ?? null,
+              courseTitle: courseInfo.title,
+              courseId,
+            }),
+            template: 'completion',
+            userId: user.id,
+          })
+
+          // 2) 신규 수료증 발급된 경우 수료증 안내
+          if (newCertId) {
+            await sendEmail({
+              to: recipient,
+              subject: `[Ingrow LMS] ${courseInfo.title} 수료증이 발급되었습니다`,
+              react: CertificateEmail({
+                name: profile?.name ?? null,
+                courseTitle: courseInfo.title,
+                certificateId: newCertId,
+              }),
+              template: 'certificate',
+              userId: user.id,
+            })
+          }
+        }
+      } catch (e) {
+        console.warn('[completion email] failed:', e)
       }
     }
   }
