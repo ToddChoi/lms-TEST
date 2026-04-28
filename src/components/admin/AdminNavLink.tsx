@@ -2,16 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import type { LucideIcon } from 'lucide-react'
 
 interface Props {
   href: string
   label: string
-  icon: LucideIcon
+  icon: React.ReactNode
   exact?: boolean
 }
 
-export function AdminNavLink({ href, label, icon: Icon, exact }: Props) {
+export function AdminNavLink({ href, label, icon, exact }: Props) {
   const pathname = usePathname()
   const isActive = exact ? pathname === href : pathname.startsWith(href)
 
@@ -24,7 +23,9 @@ export function AdminNavLink({ href, label, icon: Icon, exact }: Props) {
           : 'text-gray-600 hover:bg-silver hover:text-navy'
       }`}
     >
-      <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-accent' : ''}`} />
+      <span className={`h-4 w-4 shrink-0 ${isActive ? 'text-accent' : ''}`}>
+        {icon}
+      </span>
       {label}
     </Link>
   )

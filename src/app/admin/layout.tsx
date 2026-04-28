@@ -89,7 +89,7 @@ export default async function AdminLayout({
                 key={item.href}
                 href={item.href}
                 label={item.label}
-                icon={item.icon}
+                icon={<item.icon className="h-4 w-4" />}
                 exact={item.exact}
               />
             ))}

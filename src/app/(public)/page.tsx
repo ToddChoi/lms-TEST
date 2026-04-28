@@ -1,9 +1,10 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { BookOpen, Users, Award, ArrowRight, Building2, CheckCircle } from 'lucide-react'
+import { Users, Award, ArrowRight, Building2, CheckCircle, BookOpen } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { formatDuration } from '@/lib/utils'
+import { CourseThumb } from '@/components/courses/CourseThumb'
 import type { Metadata } from 'next'
 
 type FeaturedCourse = {
@@ -130,19 +131,7 @@ export default async function HomePage() {
                   >
                     {/* 썸네일 */}
                     <div className="relative h-40 overflow-hidden rounded-t-2xl bg-gradient-to-br from-accent-pale to-accent/10">
-                      {course.thumbnail_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={course.thumbnail_url}
-                          alt={course.title}
-                          className="h-full w-full object-cover"
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center">
-                          <BookOpen className="h-12 w-12 text-accent/40" />
-                        </div>
-                      )}
+                      <CourseThumb src={course.thumbnail_url} alt={course.title} />
                     </div>
 
                     <div className="flex flex-1 flex-col p-4">
