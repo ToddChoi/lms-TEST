@@ -46,7 +46,7 @@ export default function ProfilePage() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from('profiles')
       .update({ name: name.trim() })
       .eq('id', user.id)
