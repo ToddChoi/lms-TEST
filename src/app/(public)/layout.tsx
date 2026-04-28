@@ -8,19 +8,23 @@ export default async function PublicLayout({
 }: {
   children: React.ReactNode
 }) {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
   let profile: Profile | null = null
-  if (user) {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single()
-    profile = data
+
+  try {
+    const supabase = createClient()
+    const authRes = await supabase.auth.getUser()
+    const user = authRes.data?.user ?? null
+
+    if (user) {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+      profile = data as Profile | null
+    }
+  } catch {
+    // 인증 오류 시 비로그인 상태로 렌더링
   }
 
   return (

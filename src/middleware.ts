@@ -27,9 +27,8 @@ export async function middleware(request: NextRequest) {
   )
 
   // 세션 갱신 (필수 — 삭제하지 말 것)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const authRes = await supabase.auth.getUser()
+  const user = authRes.data?.user ?? null
 
   const { pathname } = request.nextUrl
 
