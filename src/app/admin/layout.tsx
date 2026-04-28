@@ -10,12 +10,8 @@ import {
   Building2,
   BarChart3,
   Bell,
-  HelpCircle,
-  MessageSquare,
-  Menu,
   Settings,
   Tag,
-  Image,
   Upload,
   CreditCard,
 } from 'lucide-react'
@@ -40,11 +36,7 @@ const ADMIN_NAV = [
   { href: '/admin/bulk', label: '일괄 업로드', icon: Upload },
   { href: '/admin/statistics', label: '통계', icon: BarChart3 },
   { href: '/admin/notices', label: '공지사항', icon: Bell },
-  { href: '/admin/faqs', label: 'FAQ', icon: HelpCircle },
-  { href: '/admin/contacts', label: '이용문의', icon: MessageSquare },
   { href: '/admin/categories', label: '카테고리', icon: Tag },
-  { href: '/admin/banners', label: '배너', icon: Image },
-  { href: '/admin/menus', label: '메뉴 관리', icon: Menu },
   { href: '/admin/settings', label: '사이트 설정', icon: Settings },
 ]
 
