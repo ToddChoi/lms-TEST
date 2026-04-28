@@ -2,26 +2,56 @@
 
 import { useEffect, useState } from 'react'
 
-interface Settings {
+type Group = 'general' | 'appearance' | 'contact'
+
+interface AllSettings {
+  // 일반
   site_name: string
   site_description: string
+  // 디자인
   main_color: string
   logo_url: string
+  footer_copyright: string
+  og_image_url: string
+  favicon_url: string
+  // 연락처
+  contact_email: string
+  contact_phone: string
+  contact_address: string
 }
 
-const defaults: Settings = {
+const defaults: AllSettings = {
   site_name: '',
   site_description: '',
   main_color: '#2D7DD2',
   logo_url: '',
+  footer_copyright: 'Ingrow LMS. All rights reserved.',
+  og_image_url: '',
+  favicon_url: '',
+  contact_email: '',
+  contact_phone: '',
+  contact_address: '',
+}
+
+const GROUPS: { key: Group; label: string }[] = [
+  { key: 'general', label: '일반' },
+  { key: 'appearance', label: '디자인' },
+  { key: 'contact', label: '연락처' },
+]
+
+const GROUP_KEYS: Record<Group, (keyof AllSettings)[]> = {
+  general: ['site_name', 'site_description'],
+  appearance: ['main_color', 'logo_url', 'footer_copyright', 'og_image_url', 'favicon_url'],
+  contact: ['contact_email', 'contact_phone', 'contact_address'],
 }
 
 export default function AdminSettingsPage() {
-  const [settings, setSettings] = useState<Settings>(defaults)
+  const [settings, setSettings] = useState<AllSettings>(defaults)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
   const [toastType, setToastType] = useState<'success' | 'error'>('success')
+  const [activeGroup, setActiveGroup] = useState<Group>('general')
 
   useEffect(() => {
     fetch('/api/admin/settings')
@@ -32,6 +62,12 @@ export default function AdminSettingsPage() {
           site_description: data.site_description ?? '',
           main_color: data.main_color ?? '#2D7DD2',
           logo_url: data.logo_url ?? '',
+          footer_copyright: data.footer_copyright ?? 'Ingrow LMS. All rights reserved.',
+          og_image_url: data.og_image_url ?? '',
+          favicon_url: data.favicon_url ?? '',
+          contact_email: data.contact_email ?? '',
+          contact_phone: data.contact_phone ?? '',
+          contact_address: data.contact_address ?? '',
         })
         setLoading(false)
       })
@@ -44,13 +80,19 @@ export default function AdminSettingsPage() {
     setTimeout(() => setToast(''), 3500)
   }
 
+  function set(key: keyof AllSettings, value: string) {
+    setSettings((s) => ({ ...s, [key]: value }))
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
+    const keys = GROUP_KEYS[activeGroup]
+    const payload = Object.fromEntries(keys.map((k) => [k, settings[k]]))
     const res = await fetch('/api/admin/settings', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(settings),
+      body: JSON.stringify(payload),
     })
     setSaving(false)
     if (res.ok) {
@@ -69,14 +111,15 @@ export default function AdminSettingsPage() {
     )
   }
 
+  const inputCls =
+    'border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-[#2D7DD2]'
+
   return (
     <div className="p-8 max-w-2xl">
       {toast && (
         <div
           className={`fixed top-6 right-6 px-5 py-3 rounded-xl shadow-lg z-50 text-sm font-medium transition ${
-            toastType === 'success'
-              ? 'bg-[#0B1F3A] text-white'
-              : 'bg-red-600 text-white'
+            toastType === 'success' ? 'bg-[#0B1F3A] text-white' : 'bg-red-600 text-white'
           }`}
         >
           {toast}
@@ -85,73 +128,171 @@ export default function AdminSettingsPage() {
 
       <h1 className="text-2xl font-bold text-[#0B1F3A] mb-6">사이트 설정</h1>
 
+      {/* 탭 */}
+      <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit">
+        {GROUPS.map((g) => (
+          <button
+            key={g.key}
+            onClick={() => setActiveGroup(g.key)}
+            className={`px-5 py-1.5 rounded-md text-sm font-medium transition ${
+              activeGroup === g.key
+                ? 'bg-white text-[#0B1F3A] shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {g.label}
+          </button>
+        ))}
+      </div>
+
       <form onSubmit={handleSave} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-5">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">사이트 이름</label>
-          <input
-            type="text"
-            value={settings.site_name}
-            onChange={(e) => setSettings((s) => ({ ...s, site_name: e.target.value }))}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-[#2D7DD2]"
-            placeholder="예: Ingrow LMS"
-          />
-        </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">사이트 설명</label>
-          <textarea
-            value={settings.site_description}
-            onChange={(e) => setSettings((s) => ({ ...s, site_description: e.target.value }))}
-            rows={3}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-[#2D7DD2] resize-none"
-            placeholder="사이트에 대한 간략한 설명"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">메인 컬러</label>
-          <div className="flex items-center gap-3">
-            <input
-              type="color"
-              value={settings.main_color}
-              onChange={(e) => setSettings((s) => ({ ...s, main_color: e.target.value }))}
-              className="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer p-0.5"
-            />
-            <input
-              type="text"
-              value={settings.main_color}
-              onChange={(e) => setSettings((s) => ({ ...s, main_color: e.target.value }))}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-36 font-mono focus:outline-none focus:ring-2 focus:ring-[#2D7DD2]"
-              placeholder="#2D7DD2"
-            />
-            <div
-              className="h-10 w-20 rounded-lg border border-gray-200"
-              style={{ backgroundColor: settings.main_color }}
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">로고 URL</label>
-          <input
-            type="url"
-            value={settings.logo_url}
-            onChange={(e) => setSettings((s) => ({ ...s, logo_url: e.target.value }))}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-[#2D7DD2]"
-            placeholder="https://..."
-          />
-          {settings.logo_url && (
-            <div className="mt-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={settings.logo_url}
-                alt="Logo preview"
-                className="h-12 object-contain border border-gray-200 rounded-lg p-1"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+        {/* 일반 */}
+        {activeGroup === 'general' && (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">사이트 이름</label>
+              <input
+                type="text"
+                value={settings.site_name}
+                onChange={(e) => set('site_name', e.target.value)}
+                className={inputCls}
+                placeholder="예: Ingrow LMS"
               />
             </div>
-          )}
-        </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">사이트 설명</label>
+              <textarea
+                value={settings.site_description}
+                onChange={(e) => set('site_description', e.target.value)}
+                rows={3}
+                className={`${inputCls} resize-none`}
+                placeholder="사이트에 대한 간략한 설명"
+              />
+              <p className="text-xs text-gray-400 mt-1">검색엔진(SEO) 메타 설명으로 사용됩니다.</p>
+            </div>
+          </>
+        )}
+
+        {/* 디자인 */}
+        {activeGroup === 'appearance' && (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">메인 컬러</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={settings.main_color}
+                  onChange={(e) => set('main_color', e.target.value)}
+                  className="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer p-0.5"
+                />
+                <input
+                  type="text"
+                  value={settings.main_color}
+                  onChange={(e) => set('main_color', e.target.value)}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-36 font-mono focus:outline-none focus:ring-2 focus:ring-[#2D7DD2]"
+                  placeholder="#2D7DD2"
+                />
+                <div
+                  className="h-10 w-20 rounded-lg border border-gray-200"
+                  style={{ backgroundColor: settings.main_color }}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">로고 URL</label>
+              <input
+                type="url"
+                value={settings.logo_url}
+                onChange={(e) => set('logo_url', e.target.value)}
+                className={inputCls}
+                placeholder="https://..."
+              />
+              {settings.logo_url && (
+                <div className="mt-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={settings.logo_url}
+                    alt="Logo preview"
+                    className="h-12 object-contain border border-gray-200 rounded-lg p-1"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">저작권 문구</label>
+              <input
+                type="text"
+                value={settings.footer_copyright}
+                onChange={(e) => set('footer_copyright', e.target.value)}
+                className={inputCls}
+                placeholder="Ingrow LMS. All rights reserved."
+              />
+              <p className="text-xs text-gray-400 mt-1">푸터 하단에 표시됩니다.</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">OG 이미지 URL</label>
+              <input
+                type="url"
+                value={settings.og_image_url}
+                onChange={(e) => set('og_image_url', e.target.value)}
+                className={inputCls}
+                placeholder="https://... (SNS 공유 시 표시되는 이미지)"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">파비콘 URL</label>
+              <input
+                type="url"
+                value={settings.favicon_url}
+                onChange={(e) => set('favicon_url', e.target.value)}
+                className={inputCls}
+                placeholder="https://... (브라우저 탭 아이콘)"
+              />
+            </div>
+          </>
+        )}
+
+        {/* 연락처 */}
+        {activeGroup === 'contact' && (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">대표 이메일</label>
+              <input
+                type="email"
+                value={settings.contact_email}
+                onChange={(e) => set('contact_email', e.target.value)}
+                className={inputCls}
+                placeholder="info@example.com"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">대표 전화</label>
+              <input
+                type="tel"
+                value={settings.contact_phone}
+                onChange={(e) => set('contact_phone', e.target.value)}
+                className={inputCls}
+                placeholder="02-0000-0000"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">주소</label>
+              <input
+                type="text"
+                value={settings.contact_address}
+                onChange={(e) => set('contact_address', e.target.value)}
+                className={inputCls}
+                placeholder="서울특별시 ..."
+              />
+            </div>
+          </>
+        )}
 
         <div className="pt-2">
           <button

@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 
 function makeSupabase() {
   const cookieStore = cookies()
@@ -27,31 +28,17 @@ async function checkAdmin(supabase: ReturnType<typeof makeSupabase>) {
   return user
 }
 
-export async function POST(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   const supabase = makeSupabase()
   if (!await checkAdmin(supabase)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const body = await req.json()
-  const { name, slug, description, icon, sort_order, is_active } = body
-
-  if (!name?.trim()) return NextResponse.json({ error: '이름은 필수입니다.' }, { status: 400 })
-
-  const { data: rawCategory, error } = await (supabase as any)
-    .from('categories')
-    .insert({
-      name,
-      slug: slug || name.toLowerCase().replace(/\s+/g, '-'),
-      description: description || null,
-      icon: icon || null,
-      sort_order: sort_order ?? 0,
-      is_active: is_active ?? true,
-    })
-    .select()
-    .single()
+  const { data, error } = await (supabase as any)
+    .from('home_sections')
+    .select('*')
+    .order('sort_order')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  const category = rawCategory as unknown as object
-  return NextResponse.json({ category })
+  return NextResponse.json({ sections: data })
 }
 
 export async function PATCH(req: NextRequest) {
@@ -59,41 +46,23 @@ export async function PATCH(req: NextRequest) {
   if (!await checkAdmin(supabase)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const body = await req.json()
-  const { id, name, slug, description, icon, sort_order, is_active } = body
+  const { id, is_visible, config, sort_order } = body
 
   if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
 
-  const updateData: Record<string, unknown> = {}
-  if (name !== undefined) updateData.name = name
-  if (slug !== undefined) updateData.slug = slug
-  if (description !== undefined) updateData.description = description || null
-  if (icon !== undefined) updateData.icon = icon || null
+  const updateData: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  }
+  if (is_visible !== undefined) updateData.is_visible = is_visible
+  if (config !== undefined) updateData.config = config
   if (sort_order !== undefined) updateData.sort_order = sort_order
-  if (is_active !== undefined) updateData.is_active = is_active
 
   const { error } = await (supabase as any)
-    .from('categories')
+    .from('home_sections')
     .update(updateData)
     .eq('id', id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ success: true })
-}
-
-export async function DELETE(req: NextRequest) {
-  const supabase = makeSupabase()
-  if (!await checkAdmin(supabase)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-
-  const body = await req.json()
-  const { id } = body
-
-  if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
-
-  const { error } = await (supabase as any)
-    .from('categories')
-    .delete()
-    .eq('id', id)
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  revalidatePath('/')
   return NextResponse.json({ success: true })
 }

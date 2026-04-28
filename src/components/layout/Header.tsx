@@ -7,24 +7,27 @@ import { Menu, X, User, LogOut, Settings, BookOpen } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
-import type { Profile } from '@/types/database'
+import type { Profile, NavLink } from '@/types/database'
 
 interface HeaderProps {
   profile: Profile | null
+  navLinks?: NavLink[]
 }
 
-const NAV_LINKS = [
-  { href: '/courses', label: '강좌' },
-  { href: '/notice', label: '공지사항' },
-  { href: '/faq', label: 'FAQ' },
-  { href: '/b2b', label: '기업 도입' },
-  { href: '/contact', label: '문의하기' },
+const DEFAULT_NAV: NavLink[] = [
+  { id: 0, label: '강좌', href: '/courses', target: '_self' },
+  { id: 1, label: '공지사항', href: '/notice', target: '_self' },
+  { id: 2, label: 'FAQ', href: '/faq', target: '_self' },
+  { id: 3, label: '기업 도입', href: '/b2b', target: '_self' },
+  { id: 4, label: '문의하기', href: '/contact', target: '_self' },
 ]
 
-export function Header({ profile }: HeaderProps) {
+export function Header({ profile, navLinks }: HeaderProps) {
   const router = useRouter()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+
+  const links = navLinks && navLinks.length > 0 ? navLinks : DEFAULT_NAV
 
   const handleLogout = async () => {
     const supabase = createClient()
@@ -46,10 +49,12 @@ export function Header({ profile }: HeaderProps) {
 
         {/* 데스크탑 내비게이션 */}
         <nav className="hidden items-center gap-6 md:flex">
-          {NAV_LINKS.map((link) => (
+          {links.map((link) => (
             <Link
-              key={link.href}
+              key={link.id}
               href={link.href}
+              target={link.target !== '_self' ? link.target : undefined}
+              rel={link.target === '_blank' ? 'noopener noreferrer' : undefined}
               className="text-sm font-medium text-gray-600 transition-colors hover:text-navy"
             >
               {link.label}
@@ -136,10 +141,11 @@ export function Header({ profile }: HeaderProps) {
       {mobileOpen && (
         <div className="border-t border-gray-100 bg-white px-4 pb-4 md:hidden">
           <nav className="flex flex-col gap-1 pt-2">
-            {NAV_LINKS.map((link) => (
+            {links.map((link) => (
               <Link
-                key={link.href}
+                key={link.id}
                 href={link.href}
+                target={link.target !== '_self' ? link.target : undefined}
                 onClick={() => setMobileOpen(false)}
                 className={cn(
                   'rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-silver'

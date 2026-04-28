@@ -13,7 +13,7 @@ export default async function AdminCategoriesPage() {
 
   const { data: rawCategories } = await supabase
     .from('categories')
-    .select('id, name, slug, sort_order, is_active')
+    .select('id, name, slug, description, icon, sort_order, is_active')
     .order('sort_order', { ascending: true })
   const categories = rawCategories as unknown as Category[] | null
 

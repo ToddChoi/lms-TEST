@@ -3,6 +3,7 @@ export type CourseStatus = 'draft' | 'active' | 'closed'
 export type CourseLevel = 'beginner' | 'intermediate' | 'advanced' | 'all'
 export type EnrollmentStatus = 'active' | 'completed' | 'expired' | 'cancelled'
 export type ContactStatus = 'pending' | 'answered'
+export type MenuType = 'header' | 'footer'
 
 export interface Database {
   public: {
@@ -51,21 +52,29 @@ export interface Database {
           id: number
           name: string
           slug: string
+          description: string | null
+          icon: string | null
           sort_order: number
           is_active: boolean
           created_at: string
+          updated_at: string | null
         }
         Insert: {
           name: string
           slug: string
+          description?: string | null
+          icon?: string | null
           sort_order?: number
           is_active?: boolean
         }
         Update: {
           name?: string
           slug?: string
+          description?: string | null
+          icon?: string | null
           sort_order?: number
           is_active?: boolean
+          updated_at?: string
         }
       }
       courses: {
@@ -287,18 +296,116 @@ export interface Database {
         }
         Update: never
       }
+      banners: {
+        Row: {
+          id: number
+          title: string | null
+          image_url: string
+          link_url: string | null
+          link_target: string
+          sort_order: number
+          is_active: boolean
+          starts_at: string | null
+          ends_at: string | null
+          created_at: string
+          updated_at: string | null
+        }
+        Insert: {
+          title?: string | null
+          image_url: string
+          link_url?: string | null
+          link_target?: string
+          sort_order?: number
+          is_active?: boolean
+          starts_at?: string | null
+          ends_at?: string | null
+        }
+        Update: {
+          title?: string | null
+          image_url?: string
+          link_url?: string | null
+          link_target?: string
+          sort_order?: number
+          is_active?: boolean
+          starts_at?: string | null
+          ends_at?: string | null
+          updated_at?: string
+        }
+      }
+      menus: {
+        Row: {
+          id: number
+          parent_id: number | null
+          label: string
+          href: string
+          sort_order: number
+          target: string
+          is_active: boolean
+          menu_type: MenuType
+          created_at: string
+        }
+        Insert: {
+          parent_id?: number | null
+          label: string
+          href: string
+          sort_order?: number
+          target?: string
+          is_active?: boolean
+          menu_type?: MenuType
+        }
+        Update: {
+          parent_id?: number | null
+          label?: string
+          href?: string
+          sort_order?: number
+          target?: string
+          is_active?: boolean
+          menu_type?: MenuType
+        }
+      }
       site_settings: {
         Row: {
           key: string
           value: string | null
+          label: string | null
+          group_name: string | null
           updated_at: string
         }
         Insert: {
           key: string
           value?: string | null
+          label?: string | null
+          group_name?: string | null
         }
         Update: {
           value?: string | null
+          label?: string | null
+          group_name?: string | null
+          updated_at?: string
+        }
+      }
+      home_sections: {
+        Row: {
+          id: number
+          section_key: string
+          title: string | null
+          is_visible: boolean
+          sort_order: number
+          config: Record<string, unknown>
+          updated_at: string
+        }
+        Insert: {
+          section_key: string
+          title?: string | null
+          is_visible?: boolean
+          sort_order?: number
+          config?: Record<string, unknown>
+        }
+        Update: {
+          title?: string | null
+          is_visible?: boolean
+          sort_order?: number
+          config?: Record<string, unknown>
           updated_at?: string
         }
       }
@@ -319,6 +426,10 @@ export type Notice = Database['public']['Tables']['notices']['Row']
 export type Faq = Database['public']['Tables']['faqs']['Row']
 export type Contact = Database['public']['Tables']['contacts']['Row']
 export type Wishlist = Database['public']['Tables']['wishlists']['Row']
+export type Banner = Database['public']['Tables']['banners']['Row']
+export type Menu = Database['public']['Tables']['menus']['Row']
+export type SiteSetting = Database['public']['Tables']['site_settings']['Row']
+export type HomeSection = Database['public']['Tables']['home_sections']['Row']
 
 // 확장 타입 (JOIN 결과)
 export type CourseWithCategory = Course & {
@@ -331,4 +442,12 @@ export type CourseWithInstructor = Course & {
 
 export type EnrollmentWithCourse = Enrollment & {
   courses: CourseWithCategory | null
+}
+
+// NavLink 타입 (Header/Footer 용)
+export type NavLink = {
+  id: number
+  label: string
+  href: string
+  target: string
 }

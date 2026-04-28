@@ -7,6 +7,8 @@ export interface Category {
   id: string
   name: string
   slug: string
+  description: string | null
+  icon: string | null
   sort_order: number
   is_active: boolean
 }
@@ -18,11 +20,13 @@ interface Props {
 interface EditState {
   name: string
   slug: string
+  description: string
+  icon: string
   sort_order: number
   is_active: boolean
 }
 
-const emptyEdit: EditState = { name: '', slug: '', sort_order: 0, is_active: true }
+const emptyEdit: EditState = { name: '', slug: '', description: '', icon: '', sort_order: 0, is_active: true }
 
 export default function CategoryManager({ initialCategories }: Props) {
   const router = useRouter()
@@ -36,7 +40,14 @@ export default function CategoryManager({ initialCategories }: Props) {
 
   function startEdit(cat: Category) {
     setEditingId(cat.id)
-    setEditState({ name: cat.name, slug: cat.slug, sort_order: cat.sort_order, is_active: cat.is_active })
+    setEditState({
+      name: cat.name,
+      slug: cat.slug,
+      description: cat.description ?? '',
+      icon: cat.icon ?? '',
+      sort_order: cat.sort_order,
+      is_active: cat.is_active,
+    })
   }
 
   function cancelEdit() {
@@ -59,7 +70,19 @@ export default function CategoryManager({ initialCategories }: Props) {
     setLoading(false)
     if (res.ok) {
       setCategories((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, ...editState } : c))
+        prev.map((c) =>
+          c.id === id
+            ? {
+                ...c,
+                name: editState.name,
+                slug: editState.slug,
+                description: editState.description || null,
+                icon: editState.icon || null,
+                sort_order: editState.sort_order,
+                is_active: editState.is_active,
+              }
+            : c
+        )
       )
       setEditingId(null)
       router.refresh()
@@ -110,6 +133,8 @@ export default function CategoryManager({ initialCategories }: Props) {
     }
   }
 
+  const inputCls = 'border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-[#2D7DD2]'
+
   return (
     <div>
       {error && (
@@ -124,19 +149,22 @@ export default function CategoryManager({ initialCategories }: Props) {
             <tr>
               <th className="px-4 py-3 text-left font-semibold">이름</th>
               <th className="px-4 py-3 text-left font-semibold">슬러그</th>
-              <th className="px-4 py-3 text-left font-semibold">순서</th>
-              <th className="px-4 py-3 text-center font-semibold">활성</th>
-              <th className="px-4 py-3 text-center font-semibold">작업</th>
+              <th className="px-4 py-3 text-left font-semibold hidden lg:table-cell">설명</th>
+              <th className="px-4 py-3 text-left font-semibold hidden md:table-cell">아이콘</th>
+              <th className="px-4 py-3 text-left font-semibold w-16">순서</th>
+              <th className="px-4 py-3 text-center font-semibold w-14">활성</th>
+              <th className="px-4 py-3 text-center font-semibold w-28">작업</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {categories.length === 0 && !adding && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-gray-400">
+                <td colSpan={7} className="px-4 py-6 text-center text-gray-400">
                   카테고리가 없습니다.
                 </td>
               </tr>
             )}
+
             {categories.map((cat) =>
               editingId === cat.id ? (
                 <tr key={cat.id} className="bg-[#E8F2FC]/40">
@@ -147,14 +175,30 @@ export default function CategoryManager({ initialCategories }: Props) {
                         const name = e.target.value
                         setEditState((s) => ({ ...s, name, slug: autoSlug(name) }))
                       }}
-                      className="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-[#2D7DD2]"
+                      className={inputCls}
                     />
                   </td>
                   <td className="px-3 py-2">
                     <input
                       value={editState.slug}
                       onChange={(e) => setEditState((s) => ({ ...s, slug: e.target.value }))}
-                      className="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-[#2D7DD2]"
+                      className={inputCls}
+                    />
+                  </td>
+                  <td className="px-3 py-2 hidden lg:table-cell">
+                    <input
+                      value={editState.description}
+                      onChange={(e) => setEditState((s) => ({ ...s, description: e.target.value }))}
+                      placeholder="간단한 설명"
+                      className={inputCls}
+                    />
+                  </td>
+                  <td className="px-3 py-2 hidden md:table-cell">
+                    <input
+                      value={editState.icon}
+                      onChange={(e) => setEditState((s) => ({ ...s, icon: e.target.value }))}
+                      placeholder="이모지 or URL"
+                      className={inputCls}
                     />
                   </td>
                   <td className="px-3 py-2">
@@ -162,7 +206,7 @@ export default function CategoryManager({ initialCategories }: Props) {
                       type="number"
                       value={editState.sort_order}
                       onChange={(e) => setEditState((s) => ({ ...s, sort_order: Number(e.target.value) }))}
-                      className="border border-gray-300 rounded px-2 py-1 text-sm w-20 focus:outline-none focus:ring-1 focus:ring-[#2D7DD2]"
+                      className="border border-gray-300 rounded px-2 py-1 text-sm w-16 focus:outline-none focus:ring-1 focus:ring-[#2D7DD2]"
                     />
                   </td>
                   <td className="px-3 py-2 text-center">
@@ -193,8 +237,19 @@ export default function CategoryManager({ initialCategories }: Props) {
                 </tr>
               ) : (
                 <tr key={cat.id} className="hover:bg-[#E8F2FC]/20 transition">
-                  <td className="px-4 py-3 font-medium text-[#0B1F3A]">{cat.name}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      {cat.icon && <span className="text-base">{cat.icon}</span>}
+                      <span className="font-medium text-[#0B1F3A]">{cat.name}</span>
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-gray-500 font-mono text-xs">{cat.slug}</td>
+                  <td className="px-4 py-3 text-gray-500 text-xs hidden lg:table-cell max-w-[200px] truncate">
+                    {cat.description ?? '—'}
+                  </td>
+                  <td className="px-4 py-3 text-gray-500 text-xs hidden md:table-cell">
+                    {cat.icon ?? '—'}
+                  </td>
                   <td className="px-4 py-3 text-gray-600">{cat.sort_order}</td>
                   <td className="px-4 py-3 text-center">
                     {cat.is_active ? (
@@ -224,7 +279,7 @@ export default function CategoryManager({ initialCategories }: Props) {
               )
             )}
 
-            {/* New row */}
+            {/* 추가 행 */}
             {adding && (
               <tr className="bg-green-50/40">
                 <td className="px-3 py-2">
@@ -235,7 +290,7 @@ export default function CategoryManager({ initialCategories }: Props) {
                       setNewState((s) => ({ ...s, name, slug: autoSlug(name) }))
                     }}
                     placeholder="카테고리 이름"
-                    className="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-[#2D7DD2]"
+                    className={inputCls}
                     autoFocus
                   />
                 </td>
@@ -244,7 +299,23 @@ export default function CategoryManager({ initialCategories }: Props) {
                     value={newState.slug}
                     onChange={(e) => setNewState((s) => ({ ...s, slug: e.target.value }))}
                     placeholder="slug"
-                    className="border border-gray-300 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-[#2D7DD2]"
+                    className={inputCls}
+                  />
+                </td>
+                <td className="px-3 py-2 hidden lg:table-cell">
+                  <input
+                    value={newState.description}
+                    onChange={(e) => setNewState((s) => ({ ...s, description: e.target.value }))}
+                    placeholder="설명 (선택)"
+                    className={inputCls}
+                  />
+                </td>
+                <td className="px-3 py-2 hidden md:table-cell">
+                  <input
+                    value={newState.icon}
+                    onChange={(e) => setNewState((s) => ({ ...s, icon: e.target.value }))}
+                    placeholder="이모지 or URL"
+                    className={inputCls}
                   />
                 </td>
                 <td className="px-3 py-2">
@@ -252,7 +323,7 @@ export default function CategoryManager({ initialCategories }: Props) {
                     type="number"
                     value={newState.sort_order}
                     onChange={(e) => setNewState((s) => ({ ...s, sort_order: Number(e.target.value) }))}
-                    className="border border-gray-300 rounded px-2 py-1 text-sm w-20 focus:outline-none focus:ring-1 focus:ring-[#2D7DD2]"
+                    className="border border-gray-300 rounded px-2 py-1 text-sm w-16 focus:outline-none focus:ring-1 focus:ring-[#2D7DD2]"
                   />
                 </td>
                 <td className="px-3 py-2 text-center">
