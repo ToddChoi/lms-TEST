@@ -19,6 +19,7 @@ import {
   Upload,
   CreditCard,
 } from 'lucide-react'
+import { AdminSidebarBottom } from '@/components/admin/AdminSidebarBottom'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -98,18 +99,8 @@ export default async function AdminLayout({
           </div>
         </nav>
 
-        {/* 하단 사용자 */}
-        <div className="border-t border-gray-100 p-4">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-pale text-xs font-bold text-accent">
-              {profile.name?.charAt(0)}
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-navy">{profile.name}</p>
-              <p className="text-xs text-gray-400">{profile.role}</p>
-            </div>
-          </div>
-        </div>
+        {/* 하단 사용자 + 메인 이동 + 로그아웃 */}
+        <AdminSidebarBottom name={profile.name} role={profile.role} />
       </aside>
 
       {/* 메인 콘텐츠 */}
