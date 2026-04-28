@@ -19,7 +19,7 @@ export default async function AdminStatisticsPage() {
     { count: totalCerts },
   ] = await Promise.all([
     supabase.from('profiles').select('*', { count: 'exact', head: true }),
-    supabase.from('courses').select('*', { count: 'exact', head: true }).eq('is_published', true),
+    supabase.from('courses').select('*', { count: 'exact', head: true }).eq('status', 'active'),
     supabase.from('certificates').select('*', { count: 'exact', head: true }),
   ])
 

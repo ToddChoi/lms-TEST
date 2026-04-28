@@ -18,10 +18,10 @@ export default async function CourseSectionsPage({
 
   const { data: rawCourse } = await supabase
     .from('courses')
-    .select('id, title, is_published')
+    .select('id, title, status')
     .eq('id', params.id)
     .single()
-  const course = rawCourse as unknown as { id: string; title: string; is_published: boolean } | null
+  const course = rawCourse as unknown as { id: string; title: string; status: string } | null
   if (!course) notFound()
 
   const { data: rawSections } = await supabase
@@ -66,10 +66,12 @@ export default async function CourseSectionsPage({
         </div>
         <span
           className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
-            course.is_published ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+            course.status === 'active' ? 'bg-green-100 text-green-700' :
+            course.status === 'closed' ? 'bg-red-100 text-red-600' :
+            'bg-gray-100 text-gray-500'
           }`}
         >
-          {course.is_published ? '공개' : '비공개'}
+          {course.status === 'active' ? '공개' : course.status === 'closed' ? '마감' : '초안'}
         </span>
       </div>
 
