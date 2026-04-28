@@ -3,7 +3,6 @@ export type CourseStatus = 'draft' | 'active' | 'closed'
 export type CourseLevel = 'beginner' | 'intermediate' | 'advanced' | 'all'
 export type EnrollmentStatus = 'active' | 'completed' | 'expired' | 'cancelled'
 export type ContactStatus = 'pending' | 'answered'
-export type MenuType = 'header' | 'footer'
 
 export interface Database {
   public: {
@@ -49,15 +48,15 @@ export interface Database {
       }
       categories: {
         Row: {
-          id: number
+          id: string
           name: string
           slug: string
           description: string | null
           icon: string | null
           sort_order: number
-          is_active: boolean
+          is_visible: boolean
           created_at: string
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
           name: string
@@ -65,7 +64,7 @@ export interface Database {
           description?: string | null
           icon?: string | null
           sort_order?: number
-          is_active?: boolean
+          is_visible?: boolean
         }
         Update: {
           name?: string
@@ -73,7 +72,7 @@ export interface Database {
           description?: string | null
           icon?: string | null
           sort_order?: number
-          is_active?: boolean
+          is_visible?: boolean
           updated_at?: string
         }
       }
@@ -84,7 +83,7 @@ export interface Database {
           slug: string
           description: string | null
           thumbnail_url: string | null
-          category_id: number | null
+          category_id: string | null
           instructor_id: string | null
           price: number
           enroll_start: string | null
@@ -105,7 +104,7 @@ export interface Database {
           slug: string
           description?: string | null
           thumbnail_url?: string | null
-          category_id?: number | null
+          category_id?: string | null
           instructor_id?: string | null
           price?: number
           enroll_start?: string | null
@@ -296,71 +295,105 @@ export interface Database {
         }
         Update: never
       }
-      banners: {
+      nav_menus: {
         Row: {
-          id: number
-          title: string | null
-          image_url: string
-          link_url: string | null
-          link_target: string
+          id: string
+          location: 'header' | 'footer'
+          label: string
+          url: string
+          target: string
           sort_order: number
-          is_active: boolean
-          starts_at: string | null
-          ends_at: string | null
+          is_visible: boolean
           created_at: string
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
-          title?: string | null
-          image_url: string
-          link_url?: string | null
-          link_target?: string
+          location: 'header' | 'footer'
+          label: string
+          url: string
+          target?: string
           sort_order?: number
-          is_active?: boolean
-          starts_at?: string | null
-          ends_at?: string | null
+          is_visible?: boolean
         }
         Update: {
-          title?: string | null
-          image_url?: string
-          link_url?: string | null
-          link_target?: string
+          location?: 'header' | 'footer'
+          label?: string
+          url?: string
+          target?: string
           sort_order?: number
-          is_active?: boolean
-          starts_at?: string | null
-          ends_at?: string | null
+          is_visible?: boolean
           updated_at?: string
         }
       }
-      menus: {
+      home_sections: {
         Row: {
-          id: number
-          parent_id: number | null
+          id: string
+          type: string
           label: string
-          href: string
+          title: string | null
+          subtitle: string | null
           sort_order: number
-          target: string
-          is_active: boolean
-          menu_type: MenuType
+          is_visible: boolean
+          config: Record<string, unknown>
           created_at: string
+          updated_at: string
         }
         Insert: {
-          parent_id?: number | null
-          label: string
-          href: string
+          type: string
+          label?: string
+          title?: string | null
+          subtitle?: string | null
           sort_order?: number
-          target?: string
-          is_active?: boolean
-          menu_type?: MenuType
+          is_visible?: boolean
+          config?: Record<string, unknown>
         }
         Update: {
-          parent_id?: number | null
+          type?: string
           label?: string
-          href?: string
+          title?: string | null
+          subtitle?: string | null
           sort_order?: number
-          target?: string
-          is_active?: boolean
-          menu_type?: MenuType
+          is_visible?: boolean
+          config?: Record<string, unknown>
+          updated_at?: string
+        }
+      }
+      banners: {
+        Row: {
+          id: string
+          section_id: string
+          title: string
+          image_url: string | null
+          link_url: string | null
+          link_target: string
+          sort_order: number
+          is_visible: boolean
+          starts_at: string | null
+          ends_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          section_id: string
+          title?: string
+          image_url?: string | null
+          link_url?: string | null
+          link_target?: string
+          sort_order?: number
+          is_visible?: boolean
+          starts_at?: string | null
+          ends_at?: string | null
+        }
+        Update: {
+          title?: string
+          image_url?: string | null
+          link_url?: string | null
+          link_target?: string
+          sort_order?: number
+          is_visible?: boolean
+          starts_at?: string | null
+          ends_at?: string | null
+          updated_at?: string
         }
       }
       site_settings: {
@@ -384,31 +417,6 @@ export interface Database {
           updated_at?: string
         }
       }
-      home_sections: {
-        Row: {
-          id: number
-          section_key: string
-          title: string | null
-          is_visible: boolean
-          sort_order: number
-          config: Record<string, unknown>
-          updated_at: string
-        }
-        Insert: {
-          section_key: string
-          title?: string | null
-          is_visible?: boolean
-          sort_order?: number
-          config?: Record<string, unknown>
-        }
-        Update: {
-          title?: string | null
-          is_visible?: boolean
-          sort_order?: number
-          config?: Record<string, unknown>
-          updated_at?: string
-        }
-      }
     }
   }
 }
@@ -426,10 +434,10 @@ export type Notice = Database['public']['Tables']['notices']['Row']
 export type Faq = Database['public']['Tables']['faqs']['Row']
 export type Contact = Database['public']['Tables']['contacts']['Row']
 export type Wishlist = Database['public']['Tables']['wishlists']['Row']
-export type Banner = Database['public']['Tables']['banners']['Row']
-export type Menu = Database['public']['Tables']['menus']['Row']
-export type SiteSetting = Database['public']['Tables']['site_settings']['Row']
+export type NavMenu = Database['public']['Tables']['nav_menus']['Row']
 export type HomeSection = Database['public']['Tables']['home_sections']['Row']
+export type Banner = Database['public']['Tables']['banners']['Row']
+export type SiteSetting = Database['public']['Tables']['site_settings']['Row']
 
 // 확장 타입 (JOIN 결과)
 export type CourseWithCategory = Course & {
@@ -444,9 +452,9 @@ export type EnrollmentWithCourse = Enrollment & {
   courses: CourseWithCategory | null
 }
 
-// NavLink 타입 (Header/Footer 용)
+// NavLink 타입 (Header/Footer 렌더링용)
 export type NavLink = {
-  id: number
+  id: string
   label: string
   href: string
   target: string

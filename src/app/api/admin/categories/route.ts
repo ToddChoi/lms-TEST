@@ -1,99 +1,75 @@
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '../_guard'
 
-function makeSupabase() {
-  const cookieStore = cookies()
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: (list: { name: string; value: string; options?: any }[]) => {
-          try { list.forEach(({ name, value, options }) => cookieStore.set(name, value, options)) } catch {}
-        },
-      },
-    }
-  )
-}
+export async function GET(_req: NextRequest) {
+  const { guard, supabase } = await requireAdmin()
+  if (guard) return guard
 
-async function checkAdmin(supabase: ReturnType<typeof makeSupabase>) {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  const { data: rawProfile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  const profile = rawProfile as unknown as { role: string } | null
-  if (!profile || !['admin', 'superadmin'].includes(profile.role)) return null
-  return user
+  const { data, error } = await supabase!
+    .from('categories')
+    .select('*')
+    .order('sort_order')
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ categories: data })
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = makeSupabase()
-  if (!await checkAdmin(supabase)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const { guard, supabase } = await requireAdmin()
+  if (guard) return guard
 
   const body = await req.json()
-  const { name, slug, description, icon, sort_order, is_active } = body
+  const { name, slug, description, icon, sort_order, is_visible } = body
 
   if (!name?.trim()) return NextResponse.json({ error: '이름은 필수입니다.' }, { status: 400 })
 
-  const { data: rawCategory, error } = await (supabase as any)
+  const { data, error } = await supabase!
     .from('categories')
     .insert({
       name,
-      slug: slug || name.toLowerCase().replace(/\s+/g, '-'),
+      slug: slug || name.toLowerCase().replace(/[^a-z0-9가-힣\s-]/g, '').replace(/\s+/g, '-'),
       description: description || null,
       icon: icon || null,
       sort_order: sort_order ?? 0,
-      is_active: is_active ?? true,
+      is_visible: is_visible ?? true,
     })
     .select()
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  const category = rawCategory as unknown as object
-  return NextResponse.json({ category })
+  return NextResponse.json({ category: data }, { status: 201 })
 }
 
-export async function PATCH(req: NextRequest) {
-  const supabase = makeSupabase()
-  if (!await checkAdmin(supabase)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+export async function PUT(req: NextRequest) {
+  const { guard, supabase } = await requireAdmin()
+  if (guard) return guard
 
   const body = await req.json()
-  const { id, name, slug, description, icon, sort_order, is_active } = body
-
+  const { id, name, slug, description, icon, sort_order, is_visible } = body
   if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
 
-  const updateData: Record<string, unknown> = {}
-  if (name !== undefined) updateData.name = name
-  if (slug !== undefined) updateData.slug = slug
-  if (description !== undefined) updateData.description = description || null
-  if (icon !== undefined) updateData.icon = icon || null
-  if (sort_order !== undefined) updateData.sort_order = sort_order
-  if (is_active !== undefined) updateData.is_active = is_active
+  const update: Record<string, unknown> = { updated_at: new Date().toISOString() }
+  if (name        !== undefined) update.name        = name
+  if (slug        !== undefined) update.slug        = slug
+  if (description !== undefined) update.description = description || null
+  if (icon        !== undefined) update.icon        = icon || null
+  if (sort_order  !== undefined) update.sort_order  = sort_order
+  if (is_visible  !== undefined) update.is_visible  = is_visible
 
-  const { error } = await (supabase as any)
-    .from('categories')
-    .update(updateData)
-    .eq('id', id)
-
+  const { error } = await supabase!.from('categories').update(update).eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })
 }
 
 export async function DELETE(req: NextRequest) {
-  const supabase = makeSupabase()
-  if (!await checkAdmin(supabase)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const { guard, supabase } = await requireAdmin()
+  if (guard) return guard
 
   const body = await req.json()
   const { id } = body
-
   if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
 
-  const { error } = await (supabase as any)
-    .from('categories')
-    .delete()
-    .eq('id', id)
-
+  const { error } = await supabase!.from('categories').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })
 }

@@ -9,16 +9,16 @@ interface FooterProps {
 }
 
 const DEFAULT_SERVICE: NavLink[] = [
-  { id: 0, label: '강좌 목록', href: '/courses', target: '_self' },
-  { id: 1, label: '기업 도입', href: '/b2b', target: '_self' },
-  { id: 2, label: '공지사항', href: '/notice', target: '_self' },
-  { id: 3, label: 'FAQ', href: '/faq', target: '_self' },
+  { id: 'svc-0', label: '강좌 목록', href: '/courses', target: '_self' },
+  { id: 'svc-1', label: '기업 도입', href: '/b2b', target: '_self' },
+  { id: 'svc-2', label: '공지사항', href: '/notice', target: '_self' },
+  { id: 'svc-3', label: 'FAQ', href: '/faq', target: '_self' },
 ]
 
 const DEFAULT_SUPPORT: NavLink[] = [
-  { id: 0, label: '이용문의', href: '/contact', target: '_self' },
-  { id: 1, label: '마이페이지', href: '/my', target: '_self' },
-  { id: 2, label: '수료증', href: '/my/certificates', target: '_self' },
+  { id: 'sup-0', label: '이용문의', href: '/contact', target: '_self' },
+  { id: 'sup-1', label: '마이페이지', href: '/my', target: '_self' },
+  { id: 'sup-2', label: '수료증', href: '/my/certificates', target: '_self' },
 ]
 
 export function Footer({ serviceLinks, supportLinks, copyright }: FooterProps) {

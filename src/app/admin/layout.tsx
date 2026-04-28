@@ -15,7 +15,6 @@ import {
   CreditCard,
   HelpCircle,
   MessageSquare,
-  Image,
   Navigation,
   LayoutTemplate,
 } from 'lucide-react'
@@ -43,9 +42,8 @@ const ADMIN_NAV = [
   { href: '/admin/notices', label: '공지사항', icon: Bell },
   { href: '/admin/faqs', label: 'FAQ', icon: HelpCircle },
   { href: '/admin/contacts', label: '이용문의', icon: MessageSquare },
-  { href: '/admin/banners', label: '배너 관리', icon: Image },
-  { href: '/admin/menus', label: '메뉴 관리', icon: Navigation },
-  { href: '/admin/cms', label: '홈 섹션', icon: LayoutTemplate },
+  { href: '/admin/cms', label: '홈페이지 관리', icon: LayoutTemplate },
+  { href: '/admin/cms/menus', label: '네비게이션', icon: Navigation },
   { href: '/admin/categories', label: '카테고리', icon: Tag },
   { href: '/admin/settings', label: '사이트 설정', icon: Settings },
 ]

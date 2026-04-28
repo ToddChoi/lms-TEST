@@ -15,11 +15,11 @@ interface HeaderProps {
 }
 
 const DEFAULT_NAV: NavLink[] = [
-  { id: 0, label: '강좌', href: '/courses', target: '_self' },
-  { id: 1, label: '공지사항', href: '/notice', target: '_self' },
-  { id: 2, label: 'FAQ', href: '/faq', target: '_self' },
-  { id: 3, label: '기업 도입', href: '/b2b', target: '_self' },
-  { id: 4, label: '문의하기', href: '/contact', target: '_self' },
+  { id: 'default-0', label: '강좌', href: '/courses', target: '_self' },
+  { id: 'default-1', label: '공지사항', href: '/notice', target: '_self' },
+  { id: 'default-2', label: 'FAQ', href: '/faq', target: '_self' },
+  { id: 'default-3', label: '기업 도입', href: '/b2b', target: '_self' },
+  { id: 'default-4', label: '문의하기', href: '/contact', target: '_self' },
 ]
 
 export function Header({ profile, navLinks }: HeaderProps) {

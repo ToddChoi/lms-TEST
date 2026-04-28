@@ -1,43 +1,12 @@
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { Users, Award, ArrowRight, Building2, CheckCircle, BookOpen } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
-import { StatusBadge } from '@/components/ui/StatusBadge'
-import { formatDuration } from '@/lib/utils'
-import { CourseThumb } from '@/components/courses/CourseThumb'
+import SectionRenderer, {
+  type HomeSectionData,
+  type BannerData,
+  type FeaturedCourseData,
+  type CategoryData,
+  type StatsData,
+} from '@/components/home/SectionRenderer'
 import type { Metadata } from 'next'
-
-type FeaturedCourse = {
-  id: string; title: string; slug: string; thumbnail_url: string | null
-  total_duration: number; status: string; enroll_end: string | null
-  categories: { name: string; slug: string } | null
-}
-
-type HeroConfig = {
-  badge?: string
-  heading_line1?: string
-  heading_line2?: string
-  subtext?: string
-  cta_primary_label?: string
-  cta_primary_href?: string
-  cta_secondary_label?: string
-  cta_secondary_href?: string
-}
-
-type FeaturedConfig = {
-  title?: string
-  subtitle?: string
-  limit?: number
-}
-
-type B2bConfig = {
-  heading_line1?: string
-  heading_line2?: string
-  subtext?: string
-  cta_label?: string
-  cta_href?: string
-  benefits?: string[]
-}
 
 export const metadata: Metadata = {
   title: 'Ingrow LMS — AI·실무 역량 강화 이러닝 플랫폼',
@@ -46,260 +15,102 @@ export const metadata: Metadata = {
 
 export const revalidate = 60
 
-// 기본값
-const DEFAULT_HERO: HeroConfig = {
-  badge: 'AI·실무 역량 강화 플랫폼',
-  heading_line1: '성장하는 사람들의',
-  heading_line2: '이러닝 플랫폼',
-  subtext: 'AI 활용부터 실무 역량까지. 체계적인 커리큘럼으로\n당신의 커리어를 한 단계 높이세요.',
-  cta_primary_label: '강좌 둘러보기',
-  cta_primary_href: '/courses',
-  cta_secondary_label: '기업 도입 문의',
-  cta_secondary_href: '/b2b',
-}
-
-const DEFAULT_FEATURED: FeaturedConfig = {
-  title: '추천 강좌',
-  subtitle: '지금 인기 있는 강좌를 만나보세요',
-  limit: 6,
-}
-
-const DEFAULT_B2B: B2bConfig = {
-  heading_line1: '임직원 교육,',
-  heading_line2: '이제 Ingrow LMS로 한 번에',
-  subtext: '기업 맞춤형 커리큘럼부터 학습 현황 관리까지.\nAI 시대에 필요한 실무 역량을 체계적으로 키워드립니다.',
-  cta_label: '기업 도입 상담 신청',
-  cta_href: '/b2b',
-  benefits: [
-    '기업 맞춤형 강좌 커리큘럼 제공',
-    '임직원 학습 현황 실시간 대시보드',
-    '수료증 및 이수 현황 일괄 관리',
-    '기업 전용 포털 및 브랜딩 지원',
-  ],
-}
-
 export default async function HomePage() {
   const supabase = createClient()
 
-  // 홈 섹션 설정 가져오기 (없으면 기본값 사용)
-  let hero: HeroConfig = DEFAULT_HERO
-  let featuredConfig: FeaturedConfig = DEFAULT_FEATURED
-  let b2bConfig: B2bConfig = DEFAULT_B2B
-  let showStats = true
-  let showFeatured = true
-  let showB2b = true
+  // ── 1. 홈 섹션 목록 ──────────────────────────────────────
+  const { data: rawSections } = await supabase
+    .from('home_sections')
+    .select('id, type, label, title, subtitle, is_visible, config')
+    .eq('is_visible', true)
+    .order('sort_order')
+  const sections = (rawSections as unknown as HomeSectionData[] | null) ?? []
 
-  try {
-    const { data: rawSections } = await supabase
-      .from('home_sections')
-      .select('section_key, is_visible, config')
+  // ── 2. banner 섹션 → 배너 일괄 조회 ──────────────────────
+  const bannerSectionIds = sections.filter((s) => s.type === 'banner').map((s) => s.id)
+  let allBanners: BannerData[] = []
+
+  if (bannerSectionIds.length > 0) {
+    const now = new Date().toISOString()
+    const { data: rawBanners } = await supabase
+      .from('banners')
+      .select('id, section_id, title, image_url, link_url, link_target, sort_order, is_visible')
+      .in('section_id', bannerSectionIds)
+      .eq('is_visible', true)
+      .or(`starts_at.is.null,starts_at.lte.${now}`)
+      .or(`ends_at.is.null,ends_at.gte.${now}`)
       .order('sort_order')
-
-    if (rawSections) {
-      const sections = rawSections as { section_key: string; is_visible: boolean; config: Record<string, unknown> }[]
-      for (const s of sections) {
-        if (s.section_key === 'hero') {
-          hero = { ...DEFAULT_HERO, ...(s.config as HeroConfig) }
-        } else if (s.section_key === 'stats') {
-          showStats = s.is_visible
-        } else if (s.section_key === 'featured_courses') {
-          showFeatured = s.is_visible
-          featuredConfig = { ...DEFAULT_FEATURED, ...(s.config as FeaturedConfig) }
-        } else if (s.section_key === 'b2b_cta') {
-          showB2b = s.is_visible
-          b2bConfig = { ...DEFAULT_B2B, ...(s.config as B2bConfig) }
-        }
-      }
-    }
-  } catch {
-    // home_sections 테이블이 없으면 기본값 사용
+    allBanners = (rawBanners as unknown as BannerData[] | null) ?? []
   }
 
-  // 추천 강좌 가져오기
-  const { data: rawFeatured } = await supabase
-    .from('courses')
-    .select(`id, title, slug, thumbnail_url, total_duration, status, enroll_end, categories (name, slug)`)
-    .eq('status', 'active')
-    .eq('is_featured', true)
-    .order('sort_order')
-    .limit(featuredConfig.limit ?? 6)
-  const featuredCourses = rawFeatured as unknown as FeaturedCourse[] | null
+  const bannersBySectionId = allBanners.reduce<Record<string, BannerData[]>>((acc, b) => {
+    acc[b.section_id] = [...(acc[b.section_id] ?? []), b]
+    return acc
+  }, {})
 
-  // 통계
-  const [{ count: userCount }, { count: courseCount }, { count: certCount }] =
-    await Promise.all([
+  // ── 3. 추천 강좌 ─────────────────────────────────────────
+  const featuredSection = sections.find((s) => s.type === 'featured_courses')
+  const featuredLimit   = Number((featuredSection?.config as any)?.limit ?? 6)
+  const featuredFilter  = String((featuredSection?.config as any)?.filter ?? 'is_featured')
+
+  let featuredCourses: FeaturedCourseData[] = []
+  if (featuredSection) {
+    let query = supabase
+      .from('courses')
+      .select('id, title, slug, thumbnail_url, total_duration, status, categories (name, slug)')
+      .eq('status', 'active')
+      .order('sort_order')
+      .limit(featuredLimit)
+
+    if (featuredFilter === 'is_featured') {
+      query = query.eq('is_featured', true) as typeof query
+    }
+
+    const { data: rawFeatured } = await query
+    featuredCourses = (rawFeatured as unknown as FeaturedCourseData[] | null) ?? []
+  }
+
+  // ── 4. 카테고리 ──────────────────────────────────────────
+  const categoriesSection = sections.find((s) => s.type === 'categories')
+  const catLimit = Number((categoriesSection?.config as any)?.limit ?? 8)
+
+  let categories: CategoryData[] = []
+  if (categoriesSection) {
+    const { data: rawCats } = await supabase
+      .from('categories')
+      .select('id, name, slug, icon, is_visible')
+      .eq('is_visible', true)
+      .order('sort_order')
+      .limit(catLimit)
+    categories = (rawCats as unknown as CategoryData[] | null) ?? []
+  }
+
+  // ── 5. 통계 ──────────────────────────────────────────────
+  const statsSection = sections.find((s) => s.type === 'stats')
+  let stats: StatsData | undefined
+
+  if (statsSection) {
+    const [{ count: userCount }, { count: courseCount }, { count: certCount }] = await Promise.all([
       supabase.from('profiles').select('*', { count: 'exact', head: true }),
       supabase.from('courses').select('*', { count: 'exact', head: true }).eq('status', 'active'),
       supabase.from('certificates').select('*', { count: 'exact', head: true }),
     ])
+    stats = { userCount: userCount ?? 0, courseCount: courseCount ?? 0, certCount: certCount ?? 0 }
+  }
 
-  const stats = [
-    { label: '수강생', value: `${((userCount ?? 0) / 1000).toFixed(1)}K+`, icon: Users },
-    { label: '강좌', value: `${courseCount ?? 0}+`, icon: BookOpen },
-    { label: '수료증 발급', value: `${certCount ?? 0}+`, icon: Award },
-  ]
-
+  // ── 6. 렌더링 ────────────────────────────────────────────
   return (
     <div className="flex flex-col">
-      {/* 히어로 섹션 */}
-      <section className="bg-gradient-to-br from-navy to-navy-light py-20 text-white">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-3xl text-center">
-            {hero.badge && (
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5 text-sm">
-                <span className="h-2 w-2 rounded-full bg-accent-light"></span>
-                {hero.badge}
-              </div>
-            )}
-            <h1 className="text-4xl font-bold leading-tight sm:text-5xl lg:text-6xl">
-              {hero.heading_line1}
-              {hero.heading_line2 && (
-                <>
-                  <br />
-                  <span className="text-accent-light">{hero.heading_line2}</span>
-                </>
-              )}
-            </h1>
-            {hero.subtext && (
-              <p className="mt-6 text-lg text-gray-300 whitespace-pre-line">
-                {hero.subtext}
-              </p>
-            )}
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <Link href={hero.cta_primary_href ?? '/courses'}>
-                <Button size="lg" variant="primary" className="w-full sm:w-auto bg-accent hover:bg-accent-light">
-                  {hero.cta_primary_label ?? '강좌 둘러보기'} <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-              {hero.cta_secondary_label && (
-                <Link href={hero.cta_secondary_href ?? '/b2b'}>
-                  <Button size="lg" variant="outline" className="w-full border-white/30 text-white hover:bg-white/10 sm:w-auto">
-                    {hero.cta_secondary_label}
-                  </Button>
-                </Link>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 통계 */}
-      {showStats && (
-        <section className="border-b border-gray-100 bg-white py-10">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-3 gap-8 text-center">
-              {stats.map((stat) => (
-                <div key={stat.label}>
-                  <p className="text-3xl font-bold text-navy">{stat.value}</p>
-                  <p className="mt-1 text-sm text-gray-500">{stat.label}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* 추천 강좌 */}
-      {showFeatured && featuredCourses && featuredCourses.length > 0 && (
-        <section className="bg-silver py-16">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="mb-8 flex items-end justify-between">
-              <div>
-                <h2 className="text-2xl font-bold text-navy">{featuredConfig.title ?? '추천 강좌'}</h2>
-                {featuredConfig.subtitle && (
-                  <p className="mt-1 text-sm text-gray-500">{featuredConfig.subtitle}</p>
-                )}
-              </div>
-              <Link
-                href="/courses"
-                className="flex items-center gap-1 text-sm font-medium text-accent hover:underline"
-              >
-                전체보기 <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {featuredCourses.map((course) => {
-                const category = course.categories as { name: string; slug: string } | null
-                return (
-                  <Link
-                    key={course.id}
-                    href={`/courses/${course.id}`}
-                    className="group flex flex-col rounded-2xl bg-white shadow-sm transition-shadow hover:shadow-md"
-                  >
-                    {/* 썸네일 */}
-                    <div className="relative h-40 overflow-hidden rounded-t-2xl bg-gradient-to-br from-accent-pale to-accent/10">
-                      <CourseThumb src={course.thumbnail_url} alt={course.title} />
-                    </div>
-
-                    <div className="flex flex-1 flex-col p-4">
-                      {category && (
-                        <span className="text-xs font-medium text-accent">
-                          {category.name}
-                        </span>
-                      )}
-                      <h3 className="mt-1 font-semibold text-navy line-clamp-2 group-hover:text-accent">
-                        {course.title}
-                      </h3>
-                      <div className="mt-auto flex items-center justify-between pt-3">
-                        <StatusBadge
-                          status={course.status as 'active' | 'closed' | 'draft'}
-                        />
-                        {course.total_duration > 0 && (
-                          <span className="text-xs text-gray-400">
-                            {formatDuration(course.total_duration)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* B2B CTA */}
-      {showB2b && (
-        <section className="bg-navy py-16 text-white">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col items-center gap-10 lg:flex-row lg:items-start lg:gap-16">
-              <div className="flex-1">
-                <div className="mb-3 flex items-center gap-2 text-accent-light">
-                  <Building2 className="h-5 w-5" />
-                  <span className="text-sm font-medium">B2B 기업 도입</span>
-                </div>
-                <h2 className="text-3xl font-bold leading-snug">
-                  {b2bConfig.heading_line1}
-                  {b2bConfig.heading_line2 && <><br />{b2bConfig.heading_line2}</>}
-                </h2>
-                {b2bConfig.subtext && (
-                  <p className="mt-4 text-gray-300 whitespace-pre-line">
-                    {b2bConfig.subtext}
-                  </p>
-                )}
-                <Link href={b2bConfig.cta_href ?? '/b2b'} className="mt-6 inline-block">
-                  <Button variant="primary" className="bg-accent hover:bg-accent-light">
-                    {b2bConfig.cta_label ?? '기업 도입 상담 신청'} <ArrowRight className="h-4 w-4" />
-                  </Button>
-                </Link>
-              </div>
-              {b2bConfig.benefits && b2bConfig.benefits.length > 0 && (
-                <div className="flex-1">
-                  <ul className="flex flex-col gap-3">
-                    {b2bConfig.benefits.map((benefit) => (
-                      <li key={benefit} className="flex items-center gap-3">
-                        <CheckCircle className="h-5 w-5 shrink-0 text-accent-light" />
-                        <span className="text-gray-200">{benefit}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-      )}
+      {sections.map((section) => (
+        <SectionRenderer
+          key={section.id}
+          section={section}
+          banners={bannersBySectionId[section.id] ?? []}
+          featuredCourses={section.type === 'featured_courses' ? featuredCourses : []}
+          categories={section.type === 'categories' ? categories : []}
+          stats={section.type === 'stats' ? stats : undefined}
+        />
+      ))}
     </div>
   )
 }

@@ -3,11 +3,7 @@ import { Footer } from '@/components/layout/Footer'
 import { createClient } from '@/lib/supabase/server'
 import type { Profile, NavLink } from '@/types/database'
 
-export default async function PublicLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default async function PublicLayout({ children }: { children: React.ReactNode }) {
   let profile: Profile | null = null
   let headerLinks: NavLink[] = []
   let serviceLinks: NavLink[] = []
@@ -16,59 +12,45 @@ export default async function PublicLayout({
 
   try {
     const supabase = createClient()
-    const authRes = await supabase.auth.getUser()
-    const user = authRes.data?.user ?? null
+    const user = (await supabase.auth.getUser()).data?.user ?? null
 
     if (user) {
-      const { data } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
+      const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
       profile = data as Profile | null
     }
 
-    // 메뉴 가져오기 (header + footer)
+    // nav_menus 테이블에서 헤더/푸터 메뉴 가져오기
     const { data: rawMenus } = await supabase
-      .from('menus')
-      .select('id, label, href, target, menu_type, sort_order')
-      .eq('is_active', true)
+      .from('nav_menus')
+      .select('id, location, label, url, target, sort_order')
+      .eq('is_visible', true)
       .order('sort_order')
 
     if (rawMenus) {
       const menus = rawMenus as unknown as {
-        id: number
-        label: string
-        href: string
-        target: string
-        menu_type: string
-        sort_order: number
+        id: string; location: string; label: string; url: string; target: string; sort_order: number
       }[]
 
       headerLinks = menus
-        .filter((m) => m.menu_type === 'header')
-        .map((m) => ({ id: m.id, label: m.label, href: m.href, target: m.target ?? '_self' }))
+        .filter((m) => m.location === 'header')
+        .map((m) => ({ id: m.id, label: m.label, href: m.url, target: m.target ?? '_self' }))
 
-      const footerMenus = menus.filter((m) => m.menu_type === 'footer')
-      // footer 메뉴 앞 4개 = 서비스, 뒤 3개 = 고객지원 (sort_order 기준)
-      serviceLinks = footerMenus.slice(0, 4).map((m) => ({
-        id: m.id, label: m.label, href: m.href, target: m.target ?? '_self',
-      }))
-      supportLinks = footerMenus.slice(4).map((m) => ({
-        id: m.id, label: m.label, href: m.href, target: m.target ?? '_self',
-      }))
+      const footerMenus = menus.filter((m) => m.location === 'footer')
+      serviceLinks = footerMenus.slice(0, 4).map((m) => ({ id: m.id, label: m.label, href: m.url, target: m.target ?? '_self' }))
+      supportLinks = footerMenus.slice(4).map((m) => ({ id: m.id, label: m.label, href: m.url, target: m.target ?? '_self' }))
     }
 
-    // 저작권 문구 가져오기
-    const { data: rawCopyright } = await supabase
+    // 저작권 문구: footer_text 키 우선, 없으면 footer_copyright (이전 키명 호환)
+    const { data: rawSettings } = await supabase
       .from('site_settings')
-      .select('value')
-      .eq('key', 'footer_copyright')
-      .single()
-    copyright = (rawCopyright as any)?.value ?? undefined
+      .select('key, value')
+      .in('key', ['footer_text', 'footer_copyright'])
+    const settings = rawSettings as unknown as { key: string; value: string }[] | null
+    const settingsMap = Object.fromEntries((settings ?? []).map((s) => [s.key, s.value]))
+    copyright = settingsMap.footer_text || settingsMap.footer_copyright || undefined
 
   } catch {
-    // 오류 시 기본값 사용 (비로그인 상태로 렌더링)
+    // 오류 시 기본값으로 렌더링
   }
 
   return (
