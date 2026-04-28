@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Eye, EyeOff, ChevronDown, ChevronUp, Save } from 'lucide-react'
+import { Eye, EyeOff, ChevronDown, ChevronUp, Save, ArrowUp, ArrowDown } from 'lucide-react'
 
 export interface HomeSection {
   id: number
@@ -24,7 +24,6 @@ const SECTION_LABELS: Record<string, string> = {
   b2b_cta: 'B2B CTA',
 }
 
-// hero 섹션 필드 목록
 const HERO_FIELDS: { key: string; label: string; type: 'text' | 'textarea'; placeholder?: string }[] = [
   { key: 'badge', label: '배지 텍스트', type: 'text', placeholder: 'AI·실무 역량 강화 플랫폼' },
   { key: 'heading_line1', label: '제목 1줄', type: 'text', placeholder: '성장하는 사람들의' },
@@ -50,7 +49,17 @@ const B2B_FIELDS: { key: string; label: string; type: 'text' | 'textarea'; place
   { key: 'cta_href', label: 'CTA 버튼 링크', type: 'text', placeholder: '/b2b' },
 ]
 
-function SectionCard({ section, onUpdate }: { section: HomeSection; onUpdate: (id: number, updates: Partial<HomeSection>) => void }) {
+function SectionCard({
+  section,
+  onUpdate,
+  onMoveUp,
+  onMoveDown,
+}: {
+  section: HomeSection
+  onUpdate: (id: number, updates: Partial<HomeSection>) => void
+  onMoveUp?: () => void
+  onMoveDown?: () => void
+}) {
   const [open, setOpen] = useState(false)
   const [config, setConfig] = useState<Record<string, unknown>>(section.config ?? {})
   const [benefits, setBenefits] = useState<string[]>(
@@ -65,9 +74,8 @@ function SectionCard({ section, onUpdate }: { section: HomeSection; onUpdate: (i
 
   async function handleSave() {
     setSaving(true)
-    const finalConfig = section.section_key === 'b2b_cta'
-      ? { ...config, benefits }
-      : config
+    const finalConfig =
+      section.section_key === 'b2b_cta' ? { ...config, benefits } : config
 
     const res = await fetch('/api/admin/home-sections', {
       method: 'PATCH',
@@ -88,30 +96,60 @@ function SectionCard({ section, onUpdate }: { section: HomeSection; onUpdate: (i
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: section.id, is_visible: !section.is_visible }),
     })
-    if (res.ok) {
-      onUpdate(section.id, { is_visible: !section.is_visible })
-    }
+    if (res.ok) onUpdate(section.id, { is_visible: !section.is_visible })
   }
 
-  const inputCls = 'border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-[#2D7DD2]'
+  const inputCls =
+    'border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-[#2D7DD2]'
 
   return (
-    <div className={`bg-white rounded-xl border ${section.is_visible ? 'border-gray-100' : 'border-dashed border-gray-300 opacity-60'} shadow-sm overflow-hidden`}>
+    <div
+      className={`bg-white rounded-xl border ${
+        section.is_visible
+          ? 'border-gray-100'
+          : 'border-dashed border-gray-300 opacity-60'
+      } shadow-sm overflow-hidden`}
+    >
       {/* 헤더 */}
       <div className="flex items-center justify-between px-5 py-4">
         <div className="flex items-center gap-3">
+          {/* ▲/▼ 순서 버튼 */}
+          <div className="flex flex-col gap-0.5">
+            <button
+              onClick={onMoveUp}
+              disabled={!onMoveUp}
+              className="h-5 w-5 flex items-center justify-center rounded text-gray-400 hover:text-[#0B1F3A] hover:bg-gray-100 disabled:opacity-20 disabled:cursor-not-allowed transition"
+              title="위로 이동"
+            >
+              <ArrowUp className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={onMoveDown}
+              disabled={!onMoveDown}
+              className="h-5 w-5 flex items-center justify-center rounded text-gray-400 hover:text-[#0B1F3A] hover:bg-gray-100 disabled:opacity-20 disabled:cursor-not-allowed transition"
+              title="아래로 이동"
+            >
+              <ArrowDown className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
           <span className="text-xs font-mono bg-gray-100 text-gray-500 px-2 py-0.5 rounded">
             {section.section_key}
           </span>
           <span className="font-semibold text-[#0B1F3A]">
             {section.title ?? SECTION_LABELS[section.section_key] ?? section.section_key}
           </span>
-          <span className={`text-xs px-2 py-0.5 rounded-full ${
-            section.is_visible ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-          }`}>
+          <span
+            className={`text-xs px-2 py-0.5 rounded-full ${
+              section.is_visible
+                ? 'bg-green-100 text-green-700'
+                : 'bg-gray-100 text-gray-500'
+            }`}
+          >
             {section.is_visible ? '표시' : '숨김'}
           </span>
         </div>
+
         <div className="flex items-center gap-2">
           <button
             onClick={handleToggleVisible}
@@ -121,18 +159,24 @@ function SectionCard({ section, onUpdate }: { section: HomeSection; onUpdate: (i
                 : 'bg-green-50 text-green-700 hover:bg-green-100'
             }`}
           >
-            {section.is_visible
-              ? <><EyeOff className="h-3.5 w-3.5" /> 숨기기</>
-              : <><Eye className="h-3.5 w-3.5" /> 표시</>
-            }
+            {section.is_visible ? (
+              <><EyeOff className="h-3.5 w-3.5" /> 숨기기</>
+            ) : (
+              <><Eye className="h-3.5 w-3.5" /> 표시</>
+            )}
           </button>
+
           {section.section_key !== 'stats' && (
             <button
               onClick={() => setOpen(!open)}
               className="flex items-center gap-1 text-xs px-3 py-1.5 bg-[#E8F2FC] text-[#2D7DD2] rounded-lg hover:bg-[#2D7DD2] hover:text-white transition"
             >
               편집
-              {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              {open ? (
+                <ChevronUp className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronDown className="h-3.5 w-3.5" />
+              )}
             </button>
           )}
         </div>
@@ -142,49 +186,62 @@ function SectionCard({ section, onUpdate }: { section: HomeSection; onUpdate: (i
       {open && (
         <div className="border-t border-gray-100 px-5 py-4 bg-gray-50 space-y-3">
           {/* Hero 섹션 */}
-          {section.section_key === 'hero' && HERO_FIELDS.map((f) => (
-            <div key={f.key}>
-              <label className="block text-xs font-medium text-gray-600 mb-1">{f.label}</label>
-              {f.type === 'textarea' ? (
-                <textarea
-                  value={String(config[f.key] ?? '')}
-                  onChange={(e) => setConfigField(f.key, e.target.value)}
-                  placeholder={f.placeholder}
-                  rows={2}
-                  className={`${inputCls} resize-none`}
-                />
-              ) : (
+          {section.section_key === 'hero' &&
+            HERO_FIELDS.map((f) => (
+              <div key={f.key}>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  {f.label}
+                </label>
+                {f.type === 'textarea' ? (
+                  <textarea
+                    value={String(config[f.key] ?? '')}
+                    onChange={(e) => setConfigField(f.key, e.target.value)}
+                    placeholder={f.placeholder}
+                    rows={2}
+                    className={`${inputCls} resize-none`}
+                  />
+                ) : (
+                  <input
+                    type="text"
+                    value={String(config[f.key] ?? '')}
+                    onChange={(e) => setConfigField(f.key, e.target.value)}
+                    placeholder={f.placeholder}
+                    className={inputCls}
+                  />
+                )}
+              </div>
+            ))}
+
+          {/* Featured Courses 섹션 */}
+          {section.section_key === 'featured_courses' &&
+            FEATURED_FIELDS.map((f) => (
+              <div key={f.key}>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  {f.label}
+                </label>
                 <input
-                  type="text"
+                  type={f.type}
                   value={String(config[f.key] ?? '')}
-                  onChange={(e) => setConfigField(f.key, e.target.value)}
+                  onChange={(e) =>
+                    setConfigField(
+                      f.key,
+                      f.type === 'number' ? Number(e.target.value) : e.target.value
+                    )
+                  }
                   placeholder={f.placeholder}
                   className={inputCls}
                 />
-              )}
-            </div>
-          ))}
-
-          {/* Featured Courses 섹션 */}
-          {section.section_key === 'featured_courses' && FEATURED_FIELDS.map((f) => (
-            <div key={f.key}>
-              <label className="block text-xs font-medium text-gray-600 mb-1">{f.label}</label>
-              <input
-                type={f.type}
-                value={String(config[f.key] ?? '')}
-                onChange={(e) => setConfigField(f.key, f.type === 'number' ? Number(e.target.value) : e.target.value)}
-                placeholder={f.placeholder}
-                className={inputCls}
-              />
-            </div>
-          ))}
+              </div>
+            ))}
 
           {/* B2B CTA 섹션 */}
           {section.section_key === 'b2b_cta' && (
             <>
               {B2B_FIELDS.map((f) => (
                 <div key={f.key}>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">{f.label}</label>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    {f.label}
+                  </label>
                   {f.type === 'textarea' ? (
                     <textarea
                       value={String(config[f.key] ?? '')}
@@ -205,9 +262,10 @@ function SectionCard({ section, onUpdate }: { section: HomeSection; onUpdate: (i
                 </div>
               ))}
 
-              {/* Benefits 리스트 */}
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-2">혜택 목록</label>
+                <label className="block text-xs font-medium text-gray-600 mb-2">
+                  혜택 목록
+                </label>
                 <div className="space-y-1.5">
                   {benefits.map((b, i) => (
                     <div key={i} className="flex gap-2">
@@ -260,21 +318,63 @@ function SectionCard({ section, onUpdate }: { section: HomeSection; onUpdate: (i
 export default function HomeSectionManager({ initialSections }: Props) {
   const router = useRouter()
   const [sections, setSections] = useState<HomeSection[]>(initialSections)
+  const [moving, setMoving] = useState(false)
 
   function handleUpdate(id: number, updates: Partial<HomeSection>) {
-    setSections((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, ...updates } : s))
-    )
+    setSections((prev) => prev.map((s) => (s.id === id ? { ...s, ...updates } : s)))
     router.refresh()
   }
 
+  async function moveSection(id: number, neighborId: number) {
+    if (moving) return
+    setMoving(true)
+
+    const current = sections.find((s) => s.id === id)
+    const neighbor = sections.find((s) => s.id === neighborId)
+    if (!current || !neighbor) { setMoving(false); return }
+
+    // 낙관적 업데이트
+    setSections((prev) =>
+      prev.map((s) => {
+        if (s.id === id) return { ...s, sort_order: neighbor.sort_order }
+        if (s.id === neighborId) return { ...s, sort_order: current.sort_order }
+        return s
+      })
+    )
+
+    // 두 섹션 sort_order 스왑
+    await Promise.all([
+      fetch('/api/admin/home-sections', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, sort_order: neighbor.sort_order }),
+      }),
+      fetch('/api/admin/home-sections', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: neighborId, sort_order: current.sort_order }),
+      }),
+    ])
+
+    setMoving(false)
+    router.refresh()
+  }
+
+  const sorted = [...sections].sort((a, b) => a.sort_order - b.sort_order)
+
   return (
     <div className="space-y-3">
-      {sections.map((section) => (
+      {sorted.map((section, idx) => (
         <SectionCard
           key={section.id}
           section={section}
           onUpdate={handleUpdate}
+          onMoveUp={idx > 0 ? () => moveSection(section.id, sorted[idx - 1].id) : undefined}
+          onMoveDown={
+            idx < sorted.length - 1
+              ? () => moveSection(section.id, sorted[idx + 1].id)
+              : undefined
+          }
         />
       ))}
     </div>

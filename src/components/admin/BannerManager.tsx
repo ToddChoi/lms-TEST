@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Pencil, Trash2, Eye, EyeOff, ExternalLink, ImageIcon } from 'lucide-react'
+import { Plus, Pencil, Trash2, Eye, EyeOff, ExternalLink, ImageIcon, Upload, Link as LinkIcon } from 'lucide-react'
 
 export interface Banner {
   id: number
@@ -64,10 +64,18 @@ export default function BannerManager({ initialBanners }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // 이미지 입력 탭
+  const [imageTab, setImageTab] = useState<'url' | 'upload'>('url')
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   function openAdd() {
     setEditingId(null)
     setForm(emptyForm)
     setError('')
+    setImageTab('url')
+    setUploadError('')
     setModalOpen(true)
   }
 
@@ -75,6 +83,8 @@ export default function BannerManager({ initialBanners }: Props) {
     setEditingId(banner.id)
     setForm(toFormState(banner))
     setError('')
+    setImageTab('url')
+    setUploadError('')
     setModalOpen(true)
   }
 
@@ -83,14 +93,40 @@ export default function BannerManager({ initialBanners }: Props) {
     setEditingId(null)
     setForm(emptyForm)
     setError('')
+    setUploadError('')
   }
 
   function set(key: keyof FormState, value: string | number | boolean) {
     setForm((s) => ({ ...s, [key]: value }))
   }
 
+  async function handleFileUpload(file: File) {
+    setUploading(true)
+    setUploadError('')
+
+    const fd = new FormData()
+    fd.append('file', file)
+
+    const res = await fetch('/api/admin/banners/upload', {
+      method: 'POST',
+      body: fd,
+    })
+
+    setUploading(false)
+
+    if (!res.ok) {
+      const data = await res.json()
+      setUploadError(data.error ?? '업로드 실패')
+      return
+    }
+
+    const data = await res.json()
+    setForm((s) => ({ ...s, image_url: data.url }))
+    setUploadError('')
+  }
+
   async function handleSave() {
-    if (!form.image_url.trim()) { setError('이미지 URL은 필수입니다.'); return }
+    if (!form.image_url.trim()) { setError('이미지를 등록해주세요 (URL 입력 또는 파일 업로드).'); return }
     setLoading(true)
     setError('')
 
@@ -297,17 +333,79 @@ export default function BannerManager({ initialBanners }: Props) {
             )}
 
             <div className="space-y-3">
+              {/* 이미지 섹션 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  이미지 URL <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  이미지 <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="url"
-                  value={form.image_url}
-                  onChange={(e) => set('image_url', e.target.value)}
-                  placeholder="https://..."
-                  className={inputCls}
-                />
+
+                {/* 탭 전환 */}
+                <div className="flex gap-1 mb-3 bg-gray-100 p-1 rounded-lg w-fit">
+                  <button
+                    type="button"
+                    onClick={() => setImageTab('url')}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition ${
+                      imageTab === 'url'
+                        ? 'bg-white text-[#0B1F3A] shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <LinkIcon className="h-3.5 w-3.5" />
+                    URL 입력
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setImageTab('upload')}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition ${
+                      imageTab === 'upload'
+                        ? 'bg-white text-[#0B1F3A] shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <Upload className="h-3.5 w-3.5" />
+                    파일 업로드
+                  </button>
+                </div>
+
+                {imageTab === 'url' ? (
+                  <input
+                    type="url"
+                    value={form.image_url}
+                    onChange={(e) => set('image_url', e.target.value)}
+                    placeholder="https://..."
+                    className={inputCls}
+                  />
+                ) : (
+                  <div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) handleFileUpload(file)
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-300 rounded-lg py-6 text-sm text-gray-500 hover:border-[#2D7DD2] hover:text-[#2D7DD2] transition disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      <Upload className="h-5 w-5" />
+                      {uploading ? '업로드 중...' : '클릭하여 파일 선택 (JPG, PNG, WebP, GIF · 최대 5MB)'}
+                    </button>
+                    {uploadError && (
+                      <p className="mt-1 text-xs text-red-500">{uploadError}</p>
+                    )}
+                    {form.image_url && imageTab === 'upload' && (
+                      <p className="mt-1 text-xs text-green-600 break-all">✓ 업로드 완료</p>
+                    )}
+                  </div>
+                )}
+
+                {/* 이미지 미리보기 */}
                 {form.image_url && (
                   <div className="mt-2 h-32 w-full rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -402,7 +500,7 @@ export default function BannerManager({ initialBanners }: Props) {
             <div className="flex gap-2 pt-2">
               <button
                 onClick={handleSave}
-                disabled={loading}
+                disabled={loading || uploading}
                 className="flex-1 bg-[#2D7DD2] text-white py-2.5 rounded-lg text-sm font-medium hover:bg-[#2566b0] transition disabled:opacity-60"
               >
                 {loading ? '저장 중...' : '저장'}

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Pencil, Trash2, ExternalLink } from 'lucide-react'
+import { Plus, Pencil, Trash2, ExternalLink, ArrowUp, ArrowDown, ArrowLeftRight } from 'lucide-react'
 
 export interface Menu {
   id: number
@@ -54,10 +54,13 @@ export default function MenuManager({ initialMenus }: Props) {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
   const [loading, setLoading] = useState(false)
+  const [moving, setMoving] = useState(false)
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState<'header' | 'footer'>('header')
 
-  const filtered = menus.filter((m) => m.menu_type === activeTab)
+  const filtered = [...menus]
+    .filter((m) => m.menu_type === activeTab)
+    .sort((a, b) => a.sort_order - b.sort_order)
 
   function openAdd() {
     setEditingId(null)
@@ -146,6 +149,55 @@ export default function MenuManager({ initialMenus }: Props) {
     }
   }
 
+  async function moveMenu(id: number, neighborId: number) {
+    if (moving) return
+    setMoving(true)
+
+    const current = menus.find((m) => m.id === id)
+    const neighbor = menus.find((m) => m.id === neighborId)
+    if (!current || !neighbor) { setMoving(false); return }
+
+    // 낙관적 업데이트
+    setMenus((prev) =>
+      prev.map((m) => {
+        if (m.id === id) return { ...m, sort_order: neighbor.sort_order }
+        if (m.id === neighborId) return { ...m, sort_order: current.sort_order }
+        return m
+      })
+    )
+
+    await Promise.all([
+      fetch('/api/admin/menus', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, sort_order: neighbor.sort_order }),
+      }),
+      fetch('/api/admin/menus', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: neighborId, sort_order: current.sort_order }),
+      }),
+    ])
+
+    setMoving(false)
+    router.refresh()
+  }
+
+  async function toggleLocation(menu: Menu) {
+    const newType = menu.menu_type === 'header' ? 'footer' : 'header'
+    const res = await fetch('/api/admin/menus', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: menu.id, menu_type: newType }),
+    })
+    if (res.ok) {
+      setMenus((prev) =>
+        prev.map((m) => (m.id === menu.id ? { ...m, menu_type: newType } : m))
+      )
+      router.refresh()
+    }
+  }
+
   const inputCls =
     'border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-[#2D7DD2]'
 
@@ -184,12 +236,12 @@ export default function MenuManager({ initialMenus }: Props) {
         <table className="w-full text-sm">
           <thead className="bg-[#F4F6FA] text-[#0B1F3A]">
             <tr>
+              <th className="px-4 py-3 text-left font-semibold w-16">순서</th>
               <th className="px-4 py-3 text-left font-semibold">메뉴 이름</th>
               <th className="px-4 py-3 text-left font-semibold">링크</th>
-              <th className="px-4 py-3 text-left font-semibold w-16 hidden md:table-cell">순서</th>
               <th className="px-4 py-3 text-left font-semibold w-20 hidden md:table-cell">타겟</th>
               <th className="px-4 py-3 text-center font-semibold w-16">활성</th>
-              <th className="px-4 py-3 text-center font-semibold w-24">작업</th>
+              <th className="px-4 py-3 text-center font-semibold w-36">작업</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -200,8 +252,29 @@ export default function MenuManager({ initialMenus }: Props) {
                 </td>
               </tr>
             )}
-            {filtered.map((m) => (
+            {filtered.map((m, idx) => (
               <tr key={m.id} className="hover:bg-[#E8F2FC]/20 transition">
+                {/* ▲/▼ 순서 버튼 */}
+                <td className="px-4 py-3">
+                  <div className="flex flex-col gap-0.5">
+                    <button
+                      onClick={() => idx > 0 && moveMenu(m.id, filtered[idx - 1].id)}
+                      disabled={idx === 0 || moving}
+                      className="h-5 w-5 flex items-center justify-center rounded text-gray-400 hover:text-[#0B1F3A] hover:bg-gray-100 disabled:opacity-20 disabled:cursor-not-allowed transition"
+                      title="위로 이동"
+                    >
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => idx < filtered.length - 1 && moveMenu(m.id, filtered[idx + 1].id)}
+                      disabled={idx === filtered.length - 1 || moving}
+                      className="h-5 w-5 flex items-center justify-center rounded text-gray-400 hover:text-[#0B1F3A] hover:bg-gray-100 disabled:opacity-20 disabled:cursor-not-allowed transition"
+                      title="아래로 이동"
+                    >
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </td>
                 <td className="px-4 py-3 font-medium text-[#0B1F3A]">{m.label}</td>
                 <td className="px-4 py-3">
                   <span className="flex items-center gap-1 text-xs text-gray-500 font-mono">
@@ -209,7 +282,6 @@ export default function MenuManager({ initialMenus }: Props) {
                     {m.target === '_blank' && <ExternalLink className="h-3 w-3" />}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-gray-600 hidden md:table-cell">{m.sort_order}</td>
                 <td className="px-4 py-3 hidden md:table-cell">
                   <span className={`text-xs px-2 py-0.5 rounded-full ${
                     m.target === '_blank' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-500'
@@ -231,6 +303,14 @@ export default function MenuManager({ initialMenus }: Props) {
                 </td>
                 <td className="px-4 py-3 text-center">
                   <div className="flex gap-1 justify-center">
+                    {/* 위치 이동 버튼 */}
+                    <button
+                      onClick={() => toggleLocation(m)}
+                      className="bg-amber-50 text-amber-600 p-1.5 rounded hover:bg-amber-500 hover:text-white transition"
+                      title={m.menu_type === 'header' ? '푸터로 이동' : '헤더로 이동'}
+                    >
+                      <ArrowLeftRight className="h-3.5 w-3.5" />
+                    </button>
                     <button
                       onClick={() => openEdit(m)}
                       className="bg-[#E8F2FC] text-[#2D7DD2] p-1.5 rounded hover:bg-[#2D7DD2] hover:text-white transition"
