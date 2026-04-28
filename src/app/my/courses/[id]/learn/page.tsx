@@ -47,9 +47,10 @@ export default async function LearnPage({ params, searchParams }: Props) {
     .order('sort_order')
   const sections = (rawSections as unknown as SectionRaw[] | null) ?? []
 
+  // 섹션 sort_order → 강의 sort_order 복합 정렬 (각 섹션의 sort_order가 독립적으로 1부터 시작하므로)
   const allLessons = sections
-    .flatMap((s) => s.lessons)
     .sort((a, b) => a.sort_order - b.sort_order)
+    .flatMap((s) => [...s.lessons].sort((a, b) => a.sort_order - b.sort_order))
 
   if (allLessons.length === 0) {
     return (

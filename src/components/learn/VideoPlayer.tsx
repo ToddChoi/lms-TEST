@@ -104,30 +104,35 @@ export function VideoPlayer({
   const isYT = isExternal && isYouTube(videoUrl)
   const isVM = isExternal && isVimeo(videoUrl)
 
-  if (isYT) {
+  if (isYT || isVM) {
     return (
-      <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-black">
-        <iframe
-          src={getYouTubeEmbedUrl(videoUrl)}
-          className="absolute inset-0 h-full w-full"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-          title="강의 영상"
-        />
-      </div>
-    )
-  }
-
-  if (isVM) {
-    return (
-      <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-black">
-        <iframe
-          src={getVimeoEmbedUrl(videoUrl)}
-          className="absolute inset-0 h-full w-full"
-          allow="autoplay; fullscreen; picture-in-picture"
-          allowFullScreen
-          title="강의 영상"
-        />
+      <div className="flex flex-col gap-2">
+        <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-black">
+          <iframe
+            src={isYT ? getYouTubeEmbedUrl(videoUrl) : getVimeoEmbedUrl(videoUrl)}
+            className="absolute inset-0 h-full w-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+            allowFullScreen
+            title="강의 영상"
+          />
+        </div>
+        {/* YouTube/Vimeo는 자동 진도 추적 불가 → 수동 완료 버튼 제공 */}
+        <div className="flex justify-end">
+          {completed ? (
+            <span className="flex items-center gap-1.5 rounded-xl bg-green-50 px-4 py-2 text-sm font-medium text-green-600">
+              <CheckCircle className="h-4 w-4" /> 수강 완료
+            </span>
+          ) : (
+            <button
+              onClick={() => { setCompleted(true); saveProgress(0, true) }}
+              disabled={saving}
+              className="flex items-center gap-1.5 rounded-xl border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:border-green-400 hover:text-green-600 hover:bg-green-50 transition disabled:opacity-50"
+            >
+              <CheckCircle className="h-4 w-4" />
+              {saving ? '저장 중...' : '강의 완료 표시'}
+            </button>
+          )}
+        </div>
       </div>
     )
   }

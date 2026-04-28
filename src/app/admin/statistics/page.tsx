@@ -94,54 +94,51 @@ export default async function AdminStatisticsPage() {
     active: '수강중', completed: '수료', expired: '만료', cancelled: '취소',
   }
 
-  // ─── Phase 5: 기업별 수강 현황 ───
-  const { data: rawCompaniesList } = await supabase
-    .from('companies')
-    .select('id, name')
-    .order('name', { ascending: true })
-  const companiesList = rawCompaniesList as unknown as { id: string; name: string }[] | null
+  // ─── Phase 5: 기업별 수강 현황 (N+1 → 3 queries로 최적화) ───
+  const [
+    { data: rawCompaniesList },
+    { data: rawAllMembers },
+    { data: rawAllEnrollments },
+  ] = await Promise.all([
+    supabase.from('companies').select('id, name').order('name', { ascending: true }),
+    supabase.from('company_members').select('company_id, user_id'),
+    supabase.from('enrollments').select('user_id, status'),
+  ])
 
-  const companyStats: {
-    name: string
-    memberCount: number
-    enrollmentCount: number
-    completionRate: number
-  }[] = []
+  type CompanyRow = { id: string; name: string }
+  type MemberRow = { company_id: string; user_id: string }
+  type EnrollRow = { user_id: string; status: string }
 
-  for (const c of companiesList ?? []) {
-    const { data: rawMems } = await supabase
-      .from('company_members')
-      .select('user_id')
-      .eq('company_id', c.id)
-    const mems = rawMems as unknown as { user_id: string }[] | null
-    const memberIds = (mems ?? []).map((m) => m.user_id)
+  const companiesList = rawCompaniesList as unknown as CompanyRow[] | null
+  const allMembers = rawAllMembers as unknown as MemberRow[] | null
+  const allEnrollments = rawAllEnrollments as unknown as EnrollRow[] | null
 
-    let enrollmentCount = 0
-    let completedCount = 0
-    if (memberIds.length > 0) {
-      const { count: ec } = await supabase
-        .from('enrollments')
-        .select('*', { count: 'exact', head: true })
-        .in('user_id', memberIds)
-      enrollmentCount = ec ?? 0
-      const { count: cc } = await supabase
-        .from('enrollments')
-        .select('*', { count: 'exact', head: true })
-        .in('user_id', memberIds)
-        .eq('status', 'completed')
-      completedCount = cc ?? 0
-    }
-    const completionRate = enrollmentCount > 0
-      ? Math.round((completedCount / enrollmentCount) * 100)
-      : 0
+  // company_id → user_id[] 맵
+  const companyMemberMap = new Map<string, string[]>()
+  for (const m of allMembers ?? []) {
+    if (!companyMemberMap.has(m.company_id)) companyMemberMap.set(m.company_id, [])
+    companyMemberMap.get(m.company_id)!.push(m.user_id)
+  }
 
-    companyStats.push({
+  // user_id → enrollments 맵
+  const userEnrollMap = new Map<string, EnrollRow[]>()
+  for (const e of allEnrollments ?? []) {
+    if (!userEnrollMap.has(e.user_id)) userEnrollMap.set(e.user_id, [])
+    userEnrollMap.get(e.user_id)!.push(e)
+  }
+
+  const companyStats = (companiesList ?? []).map((c) => {
+    const memberIds = companyMemberMap.get(c.id) ?? []
+    const enrollments = memberIds.flatMap((uid) => userEnrollMap.get(uid) ?? [])
+    const enrollmentCount = enrollments.length
+    const completedCount = enrollments.filter((e) => e.status === 'completed').length
+    return {
       name: c.name,
       memberCount: memberIds.length,
       enrollmentCount,
-      completionRate,
-    })
-  }
+      completionRate: enrollmentCount > 0 ? Math.round((completedCount / enrollmentCount) * 100) : 0,
+    }
+  })
 
   // Overall completion pie
   const { data: rawAllStatuses } = await supabase

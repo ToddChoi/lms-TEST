@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
+import { createClient as createAdmin } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -18,6 +19,14 @@ function makeSupabase() {
   )
 }
 
+function makeAdminClient() {
+  return createAdmin(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
+}
+
 async function checkAdmin(supabase: ReturnType<typeof makeSupabase>) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
@@ -25,6 +34,46 @@ async function checkAdmin(supabase: ReturnType<typeof makeSupabase>) {
   const profile = rawProfile as unknown as { role: string } | null
   if (!profile || !['admin', 'superadmin'].includes(profile.role)) return null
   return user
+}
+
+// 강좌의 total_duration 재계산 후 업데이트
+async function recalcCourseDuration(courseId: string) {
+  const admin = makeAdminClient() as any
+
+  // 해당 강좌의 모든 lesson duration 합산
+  const { data: lessons } = await admin
+    .from('lessons')
+    .select('duration, sections!inner(course_id)')
+    .eq('sections.course_id', courseId)
+
+  const total = (lessons as any[] ?? []).reduce((sum: number, l: any) => sum + (l.duration ?? 0), 0)
+
+  await admin
+    .from('courses')
+    .update({ total_duration: total })
+    .eq('id', courseId)
+}
+
+// section_id → course_id 조회
+async function getCourseIdBySection(sectionId: string): Promise<string | null> {
+  const admin = makeAdminClient() as any
+  const { data } = await admin
+    .from('sections')
+    .select('course_id')
+    .eq('id', sectionId)
+    .single()
+  return (data as any)?.course_id ?? null
+}
+
+// lesson_id → course_id 조회
+async function getCourseIdByLesson(lessonId: string): Promise<string | null> {
+  const admin = makeAdminClient() as any
+  const { data } = await admin
+    .from('lessons')
+    .select('section_id, sections(course_id)')
+    .eq('id', lessonId)
+    .single()
+  return (data as any)?.sections?.course_id ?? null
 }
 
 export async function POST(req: NextRequest) {
@@ -38,7 +87,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'section_id와 title은 필수입니다.' }, { status: 400 })
   }
 
-  // duration comes in as seconds (already multiplied by 60 from client)
   const { data: rawLesson, error } = await (supabase as any)
     .from('lessons')
     .insert({
@@ -53,8 +101,12 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  const lesson = rawLesson as unknown as object
-  return NextResponse.json({ lesson })
+
+  // total_duration 재계산
+  const courseId = await getCourseIdBySection(section_id)
+  if (courseId) await recalcCourseDuration(courseId)
+
+  return NextResponse.json({ lesson: rawLesson })
 }
 
 export async function PATCH(req: NextRequest) {
@@ -66,10 +118,13 @@ export async function PATCH(req: NextRequest) {
 
   if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
 
+  // 변경 전 course_id 먼저 조회
+  const courseId = await getCourseIdByLesson(id)
+
   const updateData: Record<string, unknown> = {}
   if (title !== undefined) updateData.title = title
   if (video_url !== undefined) updateData.video_url = video_url
-  if (duration !== undefined) updateData.duration = duration  // already seconds from client
+  if (duration !== undefined) updateData.duration = duration
   if (is_preview !== undefined) updateData.is_preview = is_preview
   if (sort_order !== undefined) updateData.sort_order = sort_order
 
@@ -79,6 +134,10 @@ export async function PATCH(req: NextRequest) {
     .eq('id', id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // total_duration 재계산
+  if (courseId) await recalcCourseDuration(courseId)
+
   return NextResponse.json({ success: true })
 }
 
@@ -91,11 +150,18 @@ export async function DELETE(req: NextRequest) {
 
   if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
 
+  // 삭제 전 course_id 먼저 조회
+  const courseId = await getCourseIdByLesson(id)
+
   const { error } = await (supabase as any)
     .from('lessons')
     .delete()
     .eq('id', id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // total_duration 재계산
+  if (courseId) await recalcCourseDuration(courseId)
+
   return NextResponse.json({ success: true })
 }
