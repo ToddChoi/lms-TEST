@@ -1,0 +1,99 @@
+import { NextResponse } from 'next/server'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+import type { Database } from '@/types/database'
+
+const COMPLETION_THRESHOLD = 0.8 // 80% 이상이면 강좌 수료
+
+export async function POST(request: Request) {
+  const cookieStore = cookies()
+  const supabase = createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll: () => cookieStore.getAll(),
+        setAll: (list: { name: string; value: string; options?: any }[]) => {
+          try { list.forEach(({ name, value, options }) => cookieStore.set(name, value, options)) } catch {}
+        },
+      },
+    }
+  )
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 })
+
+  const body = await request.json()
+  const { lessonId, courseId, watchedSeconds, isCompleted } = body
+
+  if (!lessonId || !courseId) {
+    return NextResponse.json({ error: '필수 파라미터가 누락됐습니다.' }, { status: 400 })
+  }
+
+  // 수강 여부 확인
+  const { data: rawEnrollment } = await supabase
+    .from('enrollments').select('id, status').eq('user_id', user.id).eq('course_id', courseId).maybeSingle()
+  const enrollment = rawEnrollment as unknown as { id: string; status: string } | null
+  if (!enrollment || enrollment.status !== 'active') {
+    return NextResponse.json({ error: '수강 중인 강좌가 아닙니다.' }, { status: 403 })
+  }
+
+  // lesson_progress upsert
+  const { error: upsertError } = await (supabase as any)
+    .from('lesson_progress')
+    .upsert({
+      user_id: user.id,
+      lesson_id: lessonId,
+      course_id: courseId,
+      watched_seconds: watchedSeconds ?? 0,
+      is_completed: isCompleted ?? false,
+      last_watched_at: new Date().toISOString(),
+    }, { onConflict: 'user_id,lesson_id' })
+
+  if (upsertError) {
+    return NextResponse.json({ error: '진도 저장 실패' }, { status: 500 })
+  }
+
+  // 강좌 수료 여부 계산
+  let courseCompleted = false
+  if (isCompleted) {
+    const [{ data: rawAllLessons }, { data: rawCompleted }] = await Promise.all([
+      supabase.from('lessons').select('id').eq('course_id', courseId),
+      supabase.from('lesson_progress').select('id').eq('user_id', user.id).eq('course_id', courseId).eq('is_completed', true),
+    ])
+    const allLessons = rawAllLessons as unknown as { id: string }[] | null
+    const completedLessons = rawCompleted as unknown as { id: string }[] | null
+
+    const total = allLessons?.length ?? 0
+    const done = completedLessons?.length ?? 0
+    const rate = total > 0 ? done / total : 0
+
+    if (rate >= COMPLETION_THRESHOLD) {
+      // 수료 처리
+      await (supabase as any)
+        .from('enrollments')
+        .update({ status: 'completed' })
+        .eq('id', enrollment.id)
+
+      courseCompleted = true
+
+      // 수료증 자동 발급 (이미 있으면 스킵)
+      const { data: rawExistingCert } = await supabase
+        .from('certificates').select('id').eq('user_id', user.id).eq('course_id', courseId).maybeSingle()
+      const existingCert = rawExistingCert as unknown as { id: string } | null
+
+      if (!existingCert) {
+        const today = new Date()
+        const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '')
+        const rand = Math.random().toString(36).substring(2, 8).toUpperCase()
+        const certNumber = `CERT-${dateStr}-${rand}`
+
+        await (supabase as any)
+          .from('certificates')
+          .insert({ user_id: user.id, course_id: courseId, cert_number: certNumber })
+      }
+    }
+  }
+
+  return NextResponse.json({ success: true, courseCompleted })
+}
