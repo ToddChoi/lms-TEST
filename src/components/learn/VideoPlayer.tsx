@@ -1,13 +1,14 @@
 'use client'
 
 import { useRef, useEffect, useCallback, useState } from 'react'
-import { CheckCircle } from 'lucide-react'
+import { CheckCircle, RotateCcw } from 'lucide-react'
 
 interface VideoPlayerProps {
   lessonId: string
   courseId: string
   videoUrl: string | null
   initialWatchedSeconds?: number
+  isInitiallyCompleted?: boolean
   onComplete?: () => void
   onProgressSave?: (seconds: number) => void
 }
@@ -35,12 +36,22 @@ function getVimeoEmbedUrl(url: string) {
 }
 
 export function VideoPlayer({
-  lessonId, courseId, videoUrl, initialWatchedSeconds = 0, onComplete, onProgressSave,
+  lessonId,
+  courseId,
+  videoUrl,
+  initialWatchedSeconds = 0,
+  isInitiallyCompleted = false,
+  onComplete,
+  onProgressSave,
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const [completed, setCompleted] = useState(false)
+  // 이미 완료된 강의는 완료 표시 상태로 시작
+  const [completed, setCompleted] = useState(isInitiallyCompleted)
   const [saving, setSaving] = useState(false)
+
+  // 이미 완료된 강의는 처음(0초)부터 재시청. 미완료는 이전 위치부터 재개.
+  const startSeconds = isInitiallyCompleted ? 0 : initialWatchedSeconds
 
   const saveProgress = useCallback(async (watchedSeconds: number, isCompleted = false) => {
     setSaving(true)
@@ -52,7 +63,7 @@ export function VideoPlayer({
       })
       const data = await res.json()
       if (data.courseCompleted) onComplete?.()
-      onProgressSave?.(watchedSeconds)
+      if (!isCompleted) onProgressSave?.(watchedSeconds)
     } finally {
       setSaving(false)
     }
@@ -63,9 +74,9 @@ export function VideoPlayer({
     const video = videoRef.current
     if (!video) return
 
-    // 이전 시청 위치로 이동
-    if (initialWatchedSeconds > 10) {
-      video.currentTime = initialWatchedSeconds
+    // 이전 시청 위치로 이동 (완료된 강의는 0부터 시작)
+    if (startSeconds > 10) {
+      video.currentTime = startSeconds
     }
 
     const handleTimeUpdate = () => {
@@ -80,6 +91,7 @@ export function VideoPlayer({
       if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null }
       setCompleted(true)
       saveProgress(Math.floor(video.duration), true)
+      onComplete?.()
     }
 
     video.addEventListener('timeupdate', handleTimeUpdate)
@@ -90,7 +102,17 @@ export function VideoPlayer({
       video.removeEventListener('ended', handleEnded)
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     }
-  }, [lessonId, initialWatchedSeconds, saveProgress])
+  }, [lessonId, startSeconds, saveProgress, onComplete])
+
+  // 다시 보기 (HTML5 video)
+  function handleRewatch() {
+    setCompleted(false)
+    const video = videoRef.current
+    if (video) {
+      video.currentTime = 0
+      video.play().catch(() => {})
+    }
+  }
 
   if (!videoUrl) {
     return (
@@ -116,15 +138,27 @@ export function VideoPlayer({
             title="강의 영상"
           />
         </div>
-        {/* YouTube/Vimeo는 자동 진도 추적 불가 → 수동 완료 버튼 제공 */}
-        <div className="flex justify-end">
+        {/* YouTube/Vimeo는 자동 진도 추적 불가 → 수동 완료 버튼 + 다시 보기 */}
+        <div className="flex justify-end gap-2">
           {completed ? (
-            <span className="flex items-center gap-1.5 rounded-xl bg-green-50 px-4 py-2 text-sm font-medium text-green-600">
-              <CheckCircle className="h-4 w-4" /> 수강 완료
-            </span>
+            <>
+              <span className="flex items-center gap-1.5 rounded-xl bg-green-50 px-4 py-2 text-sm font-medium text-green-600">
+                <CheckCircle className="h-4 w-4" /> 수강 완료
+              </span>
+              <button
+                onClick={() => setCompleted(false)}
+                className="flex items-center gap-1.5 rounded-xl border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:border-accent hover:text-accent hover:bg-accent/5 transition"
+              >
+                <RotateCcw className="h-4 w-4" /> 다시 보기
+              </button>
+            </>
           ) : (
             <button
-              onClick={() => { setCompleted(true); saveProgress(0, true) }}
+              onClick={() => {
+                setCompleted(true)
+                saveProgress(0, true)
+                onComplete?.()
+              }}
               disabled={saving}
               className="flex items-center gap-1.5 rounded-xl border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:border-green-400 hover:text-green-600 hover:bg-green-50 transition disabled:opacity-50"
             >
@@ -147,11 +181,18 @@ export function VideoPlayer({
         controlsList="nodownload"
         playsInline
       />
+      {/* 완료 오버레이 — 다시 보기 버튼 포함 */}
       {completed && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-          <div className="flex flex-col items-center gap-2 text-white">
-            <CheckCircle className="h-12 w-12 text-green-400" />
-            <p className="font-semibold">강의 완료!</p>
+        <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+          <div className="flex flex-col items-center gap-3 text-white">
+            <CheckCircle className="h-14 w-14 text-green-400" />
+            <p className="text-lg font-semibold">강의 완료!</p>
+            <button
+              onClick={handleRewatch}
+              className="flex items-center gap-2 rounded-xl bg-white/20 hover:bg-white/30 px-5 py-2.5 text-sm font-medium transition"
+            >
+              <RotateCcw className="h-4 w-4" /> 다시 보기
+            </button>
           </div>
         </div>
       )}
