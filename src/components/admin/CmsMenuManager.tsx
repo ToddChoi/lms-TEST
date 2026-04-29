@@ -2,7 +2,19 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Pencil, Trash2, ExternalLink, ArrowUp, ArrowDown, ArrowLeftRight, Eye, EyeOff } from 'lucide-react'
+import {
+  Plus, Pencil, Trash2, ExternalLink, ArrowUp, ArrowDown,
+  ArrowLeftRight, Eye, EyeOff, GripVertical,
+} from 'lucide-react'
+import {
+  DndContext, closestCenter, KeyboardSensor, PointerSensor,
+  useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  arrayMove, SortableContext, sortableKeyboardCoordinates,
+  verticalListSortingStrategy, useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 export interface CmsNavMenu {
   id: string
@@ -45,6 +57,11 @@ export default function CmsMenuManager({ initialMenus }: Props) {
   const filtered = [...menus]
     .filter((m) => m.location === activeTab)
     .sort((a, b) => a.sort_order - b.sort_order)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
 
   function openAdd() {
     setEditingId(null)
@@ -108,6 +125,7 @@ export default function CmsMenuManager({ initialMenus }: Props) {
     if (res.ok) { setMenus((prev) => prev.map((x) => x.id === m.id ? { ...x, location: newLoc } : x)); router.refresh() }
   }
 
+  /** 인접 두 메뉴 swap (▲▼) */
   async function moveMenu(id: string, neighborId: string) {
     if (moving) return
     setMoving(true)
@@ -128,11 +146,40 @@ export default function CmsMenuManager({ initialMenus }: Props) {
     router.refresh()
   }
 
+  /** 드래그앤드롭 종료 — filtered 안에서만 재정렬 (현재 탭) */
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id || moving) return
+
+    const oldIndex = filtered.findIndex((m) => m.id === active.id)
+    const newIndex = filtered.findIndex((m) => m.id === over.id)
+    if (oldIndex < 0 || newIndex < 0) return
+
+    setMoving(true)
+    const reordered = arrayMove(filtered, oldIndex, newIndex)
+    setMenus((prev) =>
+      prev.map((m) => {
+        const newOrder = reordered.findIndex((r) => r.id === m.id)
+        return newOrder >= 0 ? { ...m, sort_order: newOrder } : m
+      })
+    )
+
+    await Promise.all(
+      reordered.map((m, i) =>
+        fetch(`/api/admin/cms/menus/${m.id}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sort_order: i }),
+        })
+      )
+    )
+    setMoving(false)
+    router.refresh()
+  }
+
   const inputCls = 'border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-[#2D7DD2]'
 
   return (
     <div>
-      {/* 탭 */}
       <div className="flex gap-1 mb-5 bg-gray-100 p-1 rounded-lg w-fit">
         {(['header', 'footer'] as const).map((tab) => (
           <button key={tab} onClick={() => setActiveTab(tab)}
@@ -154,7 +201,8 @@ export default function CmsMenuManager({ initialMenus }: Props) {
         <table className="w-full text-sm">
           <thead className="bg-[#F4F6FA] text-[#0B1F3A]">
             <tr>
-              <th className="px-4 py-3 text-left font-semibold w-16">순서</th>
+              <th className="px-3 py-3 text-center font-semibold w-10"></th>
+              <th className="px-3 py-3 text-left font-semibold w-14">순서</th>
               <th className="px-4 py-3 text-left font-semibold">메뉴 이름</th>
               <th className="px-4 py-3 text-left font-semibold">URL</th>
               <th className="px-4 py-3 text-center font-semibold w-16">노출</th>
@@ -163,59 +211,35 @@ export default function CmsMenuManager({ initialMenus }: Props) {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {filtered.length === 0 ? (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">메뉴가 없습니다.</td></tr>
-            ) : filtered.map((m, idx) => (
-              <tr key={m.id} className={`hover:bg-[#E8F2FC]/20 transition ${!m.is_visible ? 'opacity-50' : ''}`}>
-                <td className="px-4 py-3">
-                  <div className="flex flex-col gap-0.5">
-                    <button onClick={() => idx > 0 && moveMenu(m.id, filtered[idx - 1].id)} disabled={idx === 0 || moving}
-                      className="h-5 w-5 flex items-center justify-center rounded text-gray-400 hover:text-[#0B1F3A] hover:bg-gray-100 disabled:opacity-20 disabled:cursor-not-allowed transition">
-                      <ArrowUp className="h-3.5 w-3.5" />
-                    </button>
-                    <button onClick={() => idx < filtered.length - 1 && moveMenu(m.id, filtered[idx + 1].id)} disabled={idx === filtered.length - 1 || moving}
-                      className="h-5 w-5 flex items-center justify-center rounded text-gray-400 hover:text-[#0B1F3A] hover:bg-gray-100 disabled:opacity-20 disabled:cursor-not-allowed transition">
-                      <ArrowDown className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </td>
-                <td className="px-4 py-3 font-medium text-[#0B1F3A]">{m.label}</td>
-                <td className="px-4 py-3">
-                  <span className="flex items-center gap-1 text-xs text-gray-500 font-mono">
-                    {m.url}
-                    {m.target === '_blank' && <ExternalLink className="h-3 w-3" />}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-center">
-                  <button onClick={() => toggleVisible(m)}
-                    className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition ${m.is_visible ? 'bg-green-100 text-green-600 hover:bg-green-200' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}
-                    title={m.is_visible ? '숨기기' : '표시'}>
-                    {m.is_visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                  </button>
-                </td>
-                <td className="px-4 py-3 text-center">
-                  <div className="flex gap-1 justify-center">
-                    <button onClick={() => toggleLocation(m)}
-                      className="bg-amber-50 text-amber-600 p-1.5 rounded hover:bg-amber-500 hover:text-white transition"
-                      title={m.location === 'header' ? '푸터로 이동' : '헤더로 이동'}>
-                      <ArrowLeftRight className="h-3.5 w-3.5" />
-                    </button>
-                    <button onClick={() => openEdit(m)}
-                      className="bg-[#E8F2FC] text-[#2D7DD2] p-1.5 rounded hover:bg-[#2D7DD2] hover:text-white transition" title="수정">
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button onClick={() => handleDelete(m.id)} disabled={loading}
-                      className="bg-red-50 text-red-500 p-1.5 rounded hover:bg-red-500 hover:text-white transition disabled:opacity-60" title="삭제">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">메뉴가 없습니다.</td></tr>
+            ) : (
+              <DndContextRows
+                ids={filtered.map((m) => m.id)}
+                sensors={sensors}
+                onDragEnd={handleDragEnd}
+              >
+                {filtered.map((m, idx) => (
+                  <SortableMenuRow
+                    key={m.id}
+                    menu={m}
+                    idx={idx}
+                    total={filtered.length}
+                    moving={moving}
+                    loading={loading}
+                    onMoveUp={() => idx > 0 && moveMenu(m.id, filtered[idx - 1].id)}
+                    onMoveDown={() => idx < filtered.length - 1 && moveMenu(m.id, filtered[idx + 1].id)}
+                    onToggleVisible={() => toggleVisible(m)}
+                    onToggleLocation={() => toggleLocation(m)}
+                    onEdit={() => openEdit(m)}
+                    onDelete={() => handleDelete(m.id)}
+                  />
+                ))}
+              </DndContextRows>
+            )}
           </tbody>
         </table>
       </div>
 
-      {/* 모달 */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 space-y-4">
@@ -272,5 +296,119 @@ export default function CmsMenuManager({ initialMenus }: Props) {
         </div>
       )}
     </div>
+  )
+}
+
+/** tbody 안에서 사용할 수 있는 Sortable wrapper */
+function DndContextRows({
+  ids, sensors, onDragEnd, children,
+}: {
+  ids: string[]
+  sensors: ReturnType<typeof useSensors>
+  onDragEnd: (e: DragEndEvent) => void
+  children: React.ReactNode
+}) {
+  return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+      <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+        {children}
+      </SortableContext>
+    </DndContext>
+  )
+}
+
+interface RowProps {
+  menu: CmsNavMenu
+  idx: number
+  total: number
+  moving: boolean
+  loading: boolean
+  onMoveUp: () => void
+  onMoveDown: () => void
+  onToggleVisible: () => void
+  onToggleLocation: () => void
+  onEdit: () => void
+  onDelete: () => void
+}
+
+function SortableMenuRow({
+  menu: m, idx, total, moving, loading,
+  onMoveUp, onMoveDown, onToggleVisible, onToggleLocation, onEdit, onDelete,
+}: RowProps) {
+  const {
+    attributes, listeners, setNodeRef, transform, transition, isDragging,
+  } = useSortable({ id: m.id })
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    position: 'relative',
+    zIndex: isDragging ? 10 : 'auto',
+    background: isDragging ? '#E8F2FC' : undefined,
+  }
+
+  return (
+    <tr
+      ref={setNodeRef}
+      style={style}
+      className={`hover:bg-[#E8F2FC]/20 transition ${!m.is_visible ? 'opacity-50' : ''}`}
+    >
+      <td className="px-3 py-3 text-center">
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          aria-label="드래그하여 순서 변경"
+          className="text-gray-300 hover:text-[#0B1F3A] cursor-grab active:cursor-grabbing"
+          title="드래그하여 순서 변경"
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+      </td>
+      <td className="px-3 py-3">
+        <div className="flex flex-col gap-0.5">
+          <button onClick={onMoveUp} disabled={idx === 0 || moving}
+            className="h-5 w-5 flex items-center justify-center rounded text-gray-400 hover:text-[#0B1F3A] hover:bg-gray-100 disabled:opacity-20 disabled:cursor-not-allowed transition">
+            <ArrowUp className="h-3.5 w-3.5" />
+          </button>
+          <button onClick={onMoveDown} disabled={idx === total - 1 || moving}
+            className="h-5 w-5 flex items-center justify-center rounded text-gray-400 hover:text-[#0B1F3A] hover:bg-gray-100 disabled:opacity-20 disabled:cursor-not-allowed transition">
+            <ArrowDown className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </td>
+      <td className="px-4 py-3 font-medium text-[#0B1F3A]">{m.label}</td>
+      <td className="px-4 py-3">
+        <span className="flex items-center gap-1 text-xs text-gray-500 font-mono">
+          {m.url}
+          {m.target === '_blank' && <ExternalLink className="h-3 w-3" />}
+        </span>
+      </td>
+      <td className="px-4 py-3 text-center">
+        <button onClick={onToggleVisible}
+          className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition ${m.is_visible ? 'bg-green-100 text-green-600 hover:bg-green-200' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}
+          title={m.is_visible ? '숨기기' : '표시'}>
+          {m.is_visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+        </button>
+      </td>
+      <td className="px-4 py-3 text-center">
+        <div className="flex gap-1 justify-center">
+          <button onClick={onToggleLocation}
+            className="bg-amber-50 text-amber-600 p-1.5 rounded hover:bg-amber-500 hover:text-white transition"
+            title={m.location === 'header' ? '푸터로 이동' : '헤더로 이동'}>
+            <ArrowLeftRight className="h-3.5 w-3.5" />
+          </button>
+          <button onClick={onEdit}
+            className="bg-[#E8F2FC] text-[#2D7DD2] p-1.5 rounded hover:bg-[#2D7DD2] hover:text-white transition" title="수정">
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+          <button onClick={onDelete} disabled={loading}
+            className="bg-red-50 text-red-500 p-1.5 rounded hover:bg-red-500 hover:text-white transition disabled:opacity-60" title="삭제">
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </td>
+    </tr>
   )
 }
