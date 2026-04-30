@@ -4,6 +4,9 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { EnrollButton } from '@/components/courses/EnrollButton'
 import { StatusBadge } from '@/components/ui/StatusBadge'
+import { CourseReviewSection } from '@/components/courses/CourseReviewSection'
+import { CourseQASection } from '@/components/courses/CourseQASection'
+import { ConfirmDialogHost } from '@/components/ui/ConfirmDialog'
 import {
   BookOpen, Clock, Users, Calendar, ChevronDown, User, PlayCircle,
 } from 'lucide-react'
@@ -137,7 +140,7 @@ export default async function CourseDetailPage({ params }: Props) {
       <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
 
         {/* ── 좌측: 강좌 정보 ── */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 space-y-6">
           {/* 카테고리 + 배지 */}
           <div className="flex items-center gap-2">
             {category && (
@@ -247,6 +250,19 @@ export default async function CourseDetailPage({ params }: Props) {
               </div>
             </div>
           )}
+
+          {/* ── 수강평 + Q&A ── */}
+          <CourseReviewSection
+            courseId={course.id}
+            currentUserId={user?.id ?? null}
+            isEnrolled={enrolled}
+          />
+          <CourseQASection
+            courseId={course.id}
+            currentUserId={user?.id ?? null}
+            isEnrolled={enrolled}
+          />
+          <ConfirmDialogHost />
         </div>
 
         {/* ── 우측: 수강 신청 카드 (sticky) ── */}

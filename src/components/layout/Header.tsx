@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 import type { Profile, NavLink } from '@/types/database'
 import { HeaderSearch } from './HeaderSearch'
+import { CategoryMegaMenu } from './CategoryMegaMenu'
 
 interface HeaderProps {
   profile: Profile | null
@@ -50,17 +51,21 @@ export function Header({ profile, navLinks }: HeaderProps) {
 
         {/* 데스크탑 내비게이션 */}
         <nav className="hidden items-center gap-6 md:flex">
-          {links.map((link) => (
-            <Link
-              key={link.id}
-              href={link.href}
-              target={link.target !== '_self' ? link.target : undefined}
-              rel={link.target === '_blank' ? 'noopener noreferrer' : undefined}
-              className="text-sm font-medium text-gray-600 transition-colors hover:text-navy"
-            >
-              {link.label}
-            </Link>
-          ))}
+          {/* "강좌" 링크는 메가메뉴로 대체. /courses 로 가는 메뉴는 메가메뉴 안에서도 처리 */}
+          <CategoryMegaMenu />
+          {links
+            .filter((link) => link.href !== '/courses' && link.href !== '/courses/')
+            .map((link) => (
+              <Link
+                key={link.id}
+                href={link.href}
+                target={link.target !== '_self' ? link.target : undefined}
+                rel={link.target === '_blank' ? 'noopener noreferrer' : undefined}
+                className="text-sm font-medium text-gray-600 transition-colors hover:text-navy"
+              >
+                {link.label}
+              </Link>
+            ))}
         </nav>
 
         {/* 데스크탑 검색바 */}

@@ -2,6 +2,7 @@ import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { CourseCardV2, type CourseCardV2Data } from '@/components/courses/CourseCardV2'
 import { CourseFilter } from '@/components/courses/CourseFilter'
+import { CourseFilterSidebar } from '@/components/courses/CourseFilterSidebar'
 import { Pagination } from '@/components/ui/Pagination'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { BookOpen } from 'lucide-react'
@@ -26,6 +27,10 @@ interface Props {
     view?: string
     page?: string
     q?: string
+    level?: string
+    price?: string         // '' | 'free' | 'paid'
+    rating_gte?: string
+    duration?: string      // '' | 'under1h' | '1to3h' | '3to10h' | 'over10h'
   }
 }
 
@@ -97,6 +102,37 @@ export default async function CoursesPage({ searchParams }: Props) {
     query = query.lt('enroll_end', now)
   }
 
+  // 난이도 (다중)
+  const levels = (searchParams.level ?? '').split(',').filter(Boolean)
+  if (levels.length > 0) {
+    query = query.in('level', levels)
+  }
+
+  // 가격
+  if (searchParams.price === 'free') {
+    query = query.eq('price', 0)
+  } else if (searchParams.price === 'paid') {
+    query = query.gt('price', 0)
+  }
+
+  // 평점 ≥
+  const ratingGte = Number(searchParams.rating_gte)
+  if (!isNaN(ratingGte) && ratingGte > 0) {
+    query = query.gte('rating_avg', ratingGte)
+  }
+
+  // 학습 시간
+  switch (searchParams.duration) {
+    case 'under1h':
+      query = query.lt('total_duration', 3600); break
+    case '1to3h':
+      query = query.gte('total_duration', 3600).lt('total_duration', 10800); break
+    case '3to10h':
+      query = query.gte('total_duration', 10800).lt('total_duration', 36000); break
+    case 'over10h':
+      query = query.gte('total_duration', 36000); break
+  }
+
   // 정렬
   switch (searchParams.sort) {
     case 'popular':
@@ -160,26 +196,36 @@ export default async function CoursesPage({ searchParams }: Props) {
         <CourseFilter categories={categories ?? []} totalCount={count ?? 0} />
       </Suspense>
 
-      <div className="mt-6">
-        {courses.length > 0 ? (
-          <>
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {courses.map((c) => <CourseCardV2 key={c.id} course={c} />)}
-            </div>
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[220px_1fr]">
+        {/* 좌측 상세 필터 (데스크탑 전용) */}
+        <div className="hidden lg:block">
+          <Suspense>
+            <CourseFilterSidebar />
+          </Suspense>
+        </div>
 
-            <div className="mt-10">
-              <Suspense>
-                <Pagination totalCount={count ?? 0} pageSize={PAGE_SIZE} />
-              </Suspense>
-            </div>
-          </>
-        ) : (
-          <EmptyState
-            icon={BookOpen}
-            title="조건에 맞는 강좌가 없습니다"
-            description="다른 카테고리나 필터를 선택해보세요."
-          />
-        )}
+        {/* 결과 영역 */}
+        <div>
+          {courses.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+                {courses.map((c) => <CourseCardV2 key={c.id} course={c} />)}
+              </div>
+
+              <div className="mt-10">
+                <Suspense>
+                  <Pagination totalCount={count ?? 0} pageSize={PAGE_SIZE} />
+                </Suspense>
+              </div>
+            </>
+          ) : (
+            <EmptyState
+              icon={BookOpen}
+              title="조건에 맞는 강좌가 없습니다"
+              description="다른 카테고리나 필터를 선택해보세요."
+            />
+          )}
+        </div>
       </div>
     </div>
   )
