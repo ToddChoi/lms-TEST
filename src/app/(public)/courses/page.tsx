@@ -1,12 +1,13 @@
 import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
-import { CourseCard } from '@/components/courses/CourseCard'
+import { CourseCardV2, type CourseCardV2Data } from '@/components/courses/CourseCardV2'
 import { CourseFilter } from '@/components/courses/CourseFilter'
 import { Pagination } from '@/components/ui/Pagination'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { BookOpen } from 'lucide-react'
 import type { Metadata } from 'next'
-import type { Category, CourseWithCategory } from '@/types/database'
-import dayjs from 'dayjs'
+import type { Category } from '@/types/database'
+import dayjs from '@/lib/dayjs'
 
 export const metadata: Metadata = {
   title: '강좌 목록',
@@ -24,13 +25,36 @@ interface Props {
     sort?: string
     view?: string
     page?: string
+    q?: string
   }
+}
+
+interface RawCourse {
+  id: string
+  title: string
+  slug: string | null
+  description: string | null
+  thumbnail_url: string | null
+  price: number
+  total_duration: number
+  status: string
+  enroll_start: string | null
+  enroll_end: string | null
+  is_featured: boolean
+  rating_avg: number | null
+  rating_count: number | null
+  enrolled_count: number | null
+  level: string | null
+  preview_url: string | null
+  price_original: number | null
+  badge: string | null
+  categories: { id: string; name: string; slug: string } | null
+  instructor: { name: string | null; avatar_url: string | null } | null
 }
 
 export default async function CoursesPage({ searchParams }: Props) {
   const supabase = createClient()
   const page = Math.max(1, Number(searchParams.page || 1))
-  const view = searchParams.view === 'list' ? 'list' : 'grid'
 
   // 카테고리 목록
   const { data: rawCategories } = await supabase
@@ -46,10 +70,17 @@ export default async function CoursesPage({ searchParams }: Props) {
     .select(`
       id, title, slug, description, thumbnail_url, price,
       total_duration, status, enroll_start, enroll_end, is_featured,
+      rating_avg, rating_count, enrolled_count, level, preview_url, price_original, badge,
       categories (id, name, slug),
-      instructor:profiles!instructor_id (name)
+      instructor:profiles!instructor_id (name, avatar_url)
     `, { count: 'exact' })
     .eq('status', 'active')
+
+  // 검색어
+  const q = (searchParams.q ?? '').trim()
+  if (q) {
+    query = query.ilike('title', `%${q}%`)
+  }
 
   // 카테고리 필터
   if (searchParams.category) {
@@ -57,7 +88,7 @@ export default async function CoursesPage({ searchParams }: Props) {
     if (cat) query = query.eq('category_id', cat.id)
   }
 
-  // 상태 필터 (신청 가능 / 마감)
+  // 신청 가능 / 마감
   const now = dayjs().format('YYYY-MM-DD')
   if (searchParams.status === 'open') {
     query = query.or(`enroll_end.is.null,enroll_end.gte.${now}`)
@@ -67,20 +98,54 @@ export default async function CoursesPage({ searchParams }: Props) {
   }
 
   // 정렬
-  if (searchParams.sort === 'title') {
-    query = query.order('title', { ascending: true })
-  } else if (searchParams.sort === 'duration') {
-    query = query.order('total_duration', { ascending: false })
-  } else {
-    query = query.order('created_at', { ascending: false })
+  switch (searchParams.sort) {
+    case 'popular':
+      query = query.order('enrolled_count', { ascending: false })
+      break
+    case 'rating':
+      query = query.order('rating_avg', { ascending: false })
+      break
+    case 'price_asc':
+      query = query.order('price', { ascending: true })
+      break
+    case 'price_desc':
+      query = query.order('price', { ascending: false })
+      break
+    case 'title':
+      query = query.order('title', { ascending: true })
+      break
+    case 'duration':
+      query = query.order('total_duration', { ascending: false })
+      break
+    case 'newest':
+    default:
+      query = query.order('created_at', { ascending: false })
   }
 
-  // 페이지네이션
   const from = (page - 1) * PAGE_SIZE
   query = query.range(from, from + PAGE_SIZE - 1)
 
   const { data: rawCourses, count } = await query
-  const courses = rawCourses as unknown as (CourseWithCategory & { instructor?: { name: string } | null })[] | null
+  const rows = (rawCourses as unknown as RawCourse[] | null) ?? []
+
+  // CourseCardV2 형태로 매핑
+  const courses: CourseCardV2Data[] = rows.map((c) => ({
+    id: c.id,
+    title: c.title,
+    thumbnail_url: c.thumbnail_url,
+    category: c.categories ? { name: c.categories.name, slug: c.categories.slug } : null,
+    instructor: c.instructor ?? null,
+    level: (c.level as CourseCardV2Data['level']) ?? null,
+    rating_avg: c.rating_avg,
+    rating_count: c.rating_count,
+    enrolled_count: c.enrolled_count,
+    total_duration: c.total_duration,
+    price: c.price,
+    price_original: c.price_original,
+    badge: (c.badge as CourseCardV2Data['badge']) ?? 'none',
+    preview_url: c.preview_url,
+    status: c.status,
+  }))
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
@@ -92,27 +157,14 @@ export default async function CoursesPage({ searchParams }: Props) {
       </div>
 
       <Suspense>
-        <CourseFilter
-          categories={categories ?? []}
-          totalCount={count ?? 0}
-        />
+        <CourseFilter categories={categories ?? []} totalCount={count ?? 0} />
       </Suspense>
 
       <div className="mt-6">
-        {courses && courses.length > 0 ? (
+        {courses.length > 0 ? (
           <>
-            <div className={
-              view === 'list'
-                ? 'flex flex-col gap-3'
-                : 'grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
-            }>
-              {courses.map((course) => (
-                <CourseCard
-                  key={course.id}
-                  course={course}
-                  view={view}
-                />
-              ))}
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {courses.map((c) => <CourseCardV2 key={c.id} course={c} />)}
             </div>
 
             <div className="mt-10">
@@ -122,11 +174,11 @@ export default async function CoursesPage({ searchParams }: Props) {
             </div>
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center rounded-2xl bg-white py-20 text-center shadow-sm">
-            <BookOpen className="h-12 w-12 text-gray-200" />
-            <p className="mt-4 font-medium text-gray-400">조건에 맞는 강좌가 없습니다</p>
-            <p className="mt-1 text-sm text-gray-300">다른 카테고리나 필터를 선택해보세요</p>
-          </div>
+          <EmptyState
+            icon={BookOpen}
+            title="조건에 맞는 강좌가 없습니다"
+            description="다른 카테고리나 필터를 선택해보세요."
+          />
         )}
       </div>
     </div>

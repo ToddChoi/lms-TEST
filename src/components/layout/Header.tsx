@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 import type { Profile, NavLink } from '@/types/database'
+import { HeaderSearch } from './HeaderSearch'
 
 interface HeaderProps {
   profile: Profile | null
@@ -61,6 +62,11 @@ export function Header({ profile, navLinks }: HeaderProps) {
             </Link>
           ))}
         </nav>
+
+        {/* 데스크탑 검색바 */}
+        <div className="hidden lg:block w-72">
+          <HeaderSearch />
+        </div>
 
         {/* 우측 버튼 영역 */}
         <div className="flex items-center gap-3">

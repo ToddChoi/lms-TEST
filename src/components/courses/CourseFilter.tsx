@@ -17,8 +17,12 @@ const STATUS_OPTIONS = [
 ]
 
 const SORT_OPTIONS = [
-  { value: 'newest', label: '최신순' },
-  { value: 'title', label: '강좌명순' },
+  { value: 'newest',   label: '최신순' },
+  { value: 'popular',  label: '인기순' },
+  { value: 'rating',   label: '평점 높은 순' },
+  { value: 'price_asc', label: '가격 낮은 순' },
+  { value: 'price_desc', label: '가격 높은 순' },
+  { value: 'title',    label: '강좌명순' },
   { value: 'duration', label: '학습시간순' },
 ]
 

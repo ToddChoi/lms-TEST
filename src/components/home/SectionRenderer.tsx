@@ -1,9 +1,7 @@
 import Link from 'next/link'
 import { ArrowRight, Users, BookOpen, Award } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { CourseThumb } from '@/components/courses/CourseThumb'
-import { StatusBadge } from '@/components/ui/StatusBadge'
-import { formatDuration } from '@/lib/utils'
+import { CourseCardV2, type CourseCardV2Data } from '@/components/courses/CourseCardV2'
 import BannerSlider from './BannerSlider'
 
 // ──────────────────────────────────────────
@@ -33,11 +31,20 @@ export interface BannerData {
 export interface FeaturedCourseData {
   id: string
   title: string
-  slug: string
+  slug: string | null
   thumbnail_url: string | null
   total_duration: number
   status: string
+  price?: number
+  price_original?: number | null
+  rating_avg?: number | null
+  rating_count?: number | null
+  enrolled_count?: number | null
+  level?: string | null
+  badge?: string | null
+  preview_url?: string | null
   categories: { name: string; slug: string } | null
+  instructor?: { name: string | null; avatar_url?: string | null } | null
 }
 
 export interface CategoryData {
@@ -168,25 +175,24 @@ function FeaturedCoursesSection({ config, courses }: { config: Record<string, un
         </div>
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {courses.map((course) => {
-            const category = course.categories as { name: string; slug: string } | null
-            return (
-              <Link key={course.id} href={`/courses/${course.id}`}
-                className="group flex flex-col rounded-2xl bg-white shadow-sm transition-shadow hover:shadow-md">
-                <div className="relative h-40 overflow-hidden rounded-t-2xl bg-gradient-to-br from-accent-pale to-accent/10">
-                  <CourseThumb src={course.thumbnail_url} alt={course.title} />
-                </div>
-                <div className="flex flex-1 flex-col p-4">
-                  {category && <span className="text-xs font-medium text-accent">{category.name}</span>}
-                  <h3 className="mt-1 font-semibold text-navy line-clamp-2 group-hover:text-accent">{course.title}</h3>
-                  <div className="mt-auto flex items-center justify-between pt-3">
-                    <StatusBadge status={course.status as 'active' | 'closed' | 'draft'} />
-                    {course.total_duration > 0 && (
-                      <span className="text-xs text-gray-400">{formatDuration(course.total_duration)}</span>
-                    )}
-                  </div>
-                </div>
-              </Link>
-            )
+            const data: CourseCardV2Data = {
+              id: course.id,
+              title: course.title,
+              thumbnail_url: course.thumbnail_url,
+              category: course.categories ? { name: course.categories.name, slug: course.categories.slug } : null,
+              instructor: course.instructor ?? null,
+              level: (course.level as CourseCardV2Data['level']) ?? null,
+              rating_avg: course.rating_avg ?? null,
+              rating_count: course.rating_count ?? null,
+              enrolled_count: course.enrolled_count ?? null,
+              total_duration: course.total_duration,
+              price: course.price,
+              price_original: course.price_original ?? null,
+              badge: (course.badge as CourseCardV2Data['badge']) ?? 'none',
+              preview_url: course.preview_url ?? null,
+              status: course.status,
+            }
+            return <CourseCardV2 key={course.id} course={data} />
           })}
         </div>
       </div>

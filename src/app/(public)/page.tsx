@@ -57,7 +57,12 @@ export default async function HomePage() {
   if (featuredSection) {
     let query = supabase
       .from('courses')
-      .select('id, title, slug, thumbnail_url, total_duration, status, categories (name, slug)')
+      .select(`
+        id, title, slug, thumbnail_url, total_duration, status, price,
+        rating_avg, rating_count, enrolled_count, level, preview_url, price_original, badge,
+        categories (name, slug),
+        instructor:profiles!instructor_id (name, avatar_url)
+      `)
       .eq('status', 'active')
       .order('sort_order')
       .limit(featuredLimit)

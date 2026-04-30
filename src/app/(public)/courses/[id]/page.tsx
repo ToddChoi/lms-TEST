@@ -314,6 +314,29 @@ export default async function CourseDetailPage({ params }: Props) {
           </div>
         </div>
       </div>
+
+      {/* 모바일 전용 하단 sticky CTA (lg 미만) */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-gray-200 bg-white px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] lg:hidden">
+        <div className="mx-auto flex max-w-3xl items-center gap-3">
+          <div className="flex flex-col leading-tight">
+            <span className="text-[11px] text-gray-400">수강료</span>
+            <span className={`text-base font-bold ${course.price === 0 ? 'text-emerald-600' : 'text-navy'}`}>
+              {course.price === 0 ? '무료' : `${course.price.toLocaleString()}원`}
+            </span>
+          </div>
+          <div className="ml-auto flex-1 max-w-[60%]">
+            <EnrollButton
+              courseId={course.id}
+              isLoggedIn={!!user}
+              isEnrolled={enrolled}
+              isEnrollable={enrollable}
+              price={course.price}
+            />
+          </div>
+        </div>
+      </div>
+      {/* sticky 바와 본문이 겹치지 않게 페이지 하단 여백 */}
+      <div className="h-20 lg:hidden" />
     </div>
   )
 }

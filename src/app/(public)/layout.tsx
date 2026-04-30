@@ -1,5 +1,6 @@
 import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
+import { MobileBottomNav } from '@/components/layout/MobileBottomNav'
 import { createClient } from '@/lib/supabase/server'
 import type { Profile, NavLink } from '@/types/database'
 
@@ -58,6 +59,7 @@ export default async function PublicLayout({ children }: { children: React.React
       <Header profile={profile} navLinks={headerLinks} />
       <main className="flex-1">{children}</main>
       <Footer serviceLinks={serviceLinks} supportLinks={supportLinks} copyright={copyright} />
+      <MobileBottomNav />
     </div>
   )
 }
