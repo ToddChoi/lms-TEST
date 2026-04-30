@@ -127,14 +127,15 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
 
   // 3) 실제 발송
   const resend = getResend()
-  if (!resend) {
-    await logNotification({ template, recipient, userId: userId ?? null, status: 'skipped', error: 'resend client null' })
+  const from = getFromAddress()
+  if (!resend || !from) {
+    await logNotification({ template, recipient, userId: userId ?? null, status: 'skipped', error: 'resend client or from address missing' })
     return { ok: true, skipped: true, reason: 'resend not initialized' }
   }
 
   try {
     const { data, error } = await resend.emails.send({
-      from: getFromAddress(),
+      from,
       to,
       subject,
       react,
