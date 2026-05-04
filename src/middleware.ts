@@ -33,7 +33,11 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // 역할 기반 접근 제어
-  if (pathname.startsWith('/admin') || pathname.startsWith('/instructor')) {
+  if (
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/instructor') ||
+    pathname.startsWith('/org/admin')
+  ) {
     if (!user) {
       return NextResponse.redirect(new URL('/login', request.url))
     }
@@ -56,6 +60,15 @@ export async function middleware(request: NextRequest) {
       if (
         !profile ||
         !['instructor', 'admin', 'superadmin'].includes(profile.role)
+      ) {
+        return NextResponse.redirect(new URL('/', request.url))
+      }
+    }
+
+    if (pathname.startsWith('/org/admin')) {
+      if (
+        !profile ||
+        !['org_admin', 'admin', 'superadmin'].includes(profile.role)
       ) {
         return NextResponse.redirect(new URL('/', request.url))
       }

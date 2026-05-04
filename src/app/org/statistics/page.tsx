@@ -69,9 +69,18 @@ export default async function OrgStatisticsPage() {
 
   return (
     <div className="p-8">
-      <div className="mb-6">
-        <p className="text-sm text-gray-500">{companyName}</p>
-        <h1 className="text-2xl font-bold text-[#0B1F3A] mt-1">통계</h1>
+      <div className="mb-6 flex items-end justify-between">
+        <div>
+          <p className="text-sm text-gray-500">{companyName}</p>
+          <h1 className="text-2xl font-bold text-[#0B1F3A] mt-1">통계</h1>
+        </div>
+        <a
+          href="/api/org/csv"
+          download
+          className="inline-flex items-center gap-1.5 rounded-lg bg-[#0B1F3A] px-4 py-2 text-sm font-medium text-white hover:bg-[#162d4f] transition"
+        >
+          CSV 내보내기
+        </a>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
