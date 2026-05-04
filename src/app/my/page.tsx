@@ -1,10 +1,11 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { BookOpen, Award, TrendingUp } from 'lucide-react'
+import { BookOpen, Award, TrendingUp, Clock } from 'lucide-react'
 import { ContinueLearningCard } from '@/components/my/ContinueLearningCard'
 import { LearningStreakWidget } from '@/components/my/LearningStreakWidget'
 import { LearningTimeChart } from '@/components/my/LearningTimeChart'
+import { LearningCalendarHeatmap } from '@/components/my/LearningCalendarHeatmap'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: '마이페이지' }
@@ -67,30 +68,46 @@ export default async function MyPage() {
       recentProgressPercent = Math.round(((doneLessons ?? 0) / (totalLessons ?? 1)) * 100)
   }
 
-  // ── 최근 30일 학습 활동 + streak 계산 ──
+  // ── 최근 84일(12주) 학습 활동 + streak + 누적 시간 계산 ──
   // lesson_progress.watched_seconds 는 lesson 누적값이라 "그날 시청 시간" 추출 불가.
-  // 대신 "그날 last_watched_at 이 갱신된 강의 수" 를 활동 지표로 사용 (정직한 단순화)
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-  const { data: rawProgressList } = await supabase
-    .from('lesson_progress')
-    .select('last_watched_at')
-    .eq('user_id', user.id)
-    .gte('last_watched_at', thirtyDaysAgo.toISOString())
+  // - daily30 / daily84: "그날 last_watched_at 이 갱신된 강의 수" 단순 활동 지표
+  // - totalWatchedSeconds: 전체 누적 시청 시간 (전 기간, 정확한 합산)
+  const eightyFourDaysAgo = new Date(Date.now() - 84 * 24 * 60 * 60 * 1000)
+  const [{ data: rawProgressList }, { data: rawAllProgress }] = await Promise.all([
+    supabase
+      .from('lesson_progress')
+      .select('last_watched_at')
+      .eq('user_id', user.id)
+      .gte('last_watched_at', eightyFourDaysAgo.toISOString()),
+    supabase
+      .from('lesson_progress')
+      .select('watched_seconds')
+      .eq('user_id', user.id),
+  ])
   const progressList = (rawProgressList as unknown as
     { last_watched_at: string }[] | null) ?? []
+  const allProgress = (rawAllProgress as unknown as
+    { watched_seconds: number | null }[] | null) ?? []
 
-  const dailyMap: Record<string, number> = {}
+  // 누적 학습 시간 (전 기간)
+  const totalWatchedSeconds = allProgress.reduce(
+    (sum, p) => sum + (p.watched_seconds ?? 0), 0
+  )
+
+  // 84일 일별 활동 카운트
+  const dailyMap84: Record<string, number> = {}
   const dateSet = new Set<string>()
-  for (let i = 0; i < 30; i++) {
-    const d = new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000)
-    dailyMap[isoDate(d)] = 0
+  for (let i = 0; i < 84; i++) {
+    const d = new Date(Date.now() - (83 - i) * 24 * 60 * 60 * 1000)
+    dailyMap84[isoDate(d)] = 0
   }
   for (const p of progressList) {
     const key = p.last_watched_at.slice(0, 10)
-    if (key in dailyMap) dailyMap[key] += 1
+    if (key in dailyMap84) dailyMap84[key] += 1
     dateSet.add(key)
   }
-  const daily = Object.values(dailyMap)
+  const daily84 = Object.values(dailyMap84)
+  const daily = daily84.slice(-30) // 기존 LearningTimeChart 용 30일
 
   // 학습 streak 계산 — 오늘부터 거꾸로 dateSet에 연속된 날짜 카운트
   let streak = 0
@@ -109,10 +126,19 @@ export default async function MyPage() {
     weekDots.push(dateSet.has(isoDate(d)))
   }
 
+  // 누적 시간 표시 — 60초 미만은 0분, 그 외는 시간 단위 우선
+  const totalMinutes = Math.floor(totalWatchedSeconds / 60)
+  const totalHours = Math.floor(totalMinutes / 60)
+  const totalTimeLabel =
+    totalHours > 0
+      ? `${totalHours}시간 ${totalMinutes % 60}분`
+      : `${totalMinutes}분`
+
   const stats = [
-    { label: '수강 중',   value: enrollmentCount ?? 0, icon: BookOpen,   color: 'text-accent',     bg: 'bg-accent-pale', href: '/my/courses' },
-    { label: '수료 완료', value: completedCount  ?? 0, icon: TrendingUp, color: 'text-green-600',  bg: 'bg-green-50',    href: '/my/courses' },
-    { label: '수료증',    value: certCount       ?? 0, icon: Award,      color: 'text-yellow-600', bg: 'bg-yellow-50',   href: '/my/certificates' },
+    { label: '수강 중',     value: String(enrollmentCount ?? 0), icon: BookOpen,   color: 'text-accent',     bg: 'bg-accent-pale', href: '/my/courses' },
+    { label: '수료 완료',   value: String(completedCount  ?? 0), icon: TrendingUp, color: 'text-green-600',  bg: 'bg-green-50',    href: '/my/courses' },
+    { label: '수료증',      value: String(certCount       ?? 0), icon: Award,      color: 'text-yellow-600', bg: 'bg-yellow-50',   href: '/my/certificates' },
+    { label: '누적 학습',   value: totalTimeLabel,                icon: Clock,      color: 'text-blue-600',   bg: 'bg-blue-50',     href: '/my/courses' },
   ]
 
   return (
@@ -140,8 +166,8 @@ export default async function MyPage() {
         />
       )}
 
-      {/* KPI 카드 */}
-      <div className="grid grid-cols-3 gap-3 sm:gap-4">
+      {/* KPI 카드 (4개) */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {stats.map((s) => (
           <Link
             key={s.label}
@@ -152,7 +178,7 @@ export default async function MyPage() {
               <s.icon className={`h-5 w-5 ${s.color}`} />
             </div>
             <div className="min-w-0">
-              <p className="text-xl font-bold text-navy leading-tight">{s.value}</p>
+              <p className="text-xl font-bold text-navy leading-tight truncate">{s.value}</p>
               <p className="text-xs text-gray-500 truncate">{s.label}</p>
             </div>
           </Link>
@@ -164,6 +190,9 @@ export default async function MyPage() {
         <LearningStreakWidget streak={streak} weekDots={weekDots} />
         <LearningTimeChart daily={daily} />
       </div>
+
+      {/* 학습 캘린더 히트맵 (12주) */}
+      <LearningCalendarHeatmap daily={daily84} />
 
       {/* 비어있을 때 안내 */}
       {(!enrollmentCount || enrollmentCount === 0) && !recent && (
