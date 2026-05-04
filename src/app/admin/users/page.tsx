@@ -13,12 +13,14 @@ function roleBadge(role: string) {
   const map: Record<string, string> = {
     student: 'bg-gray-100 text-gray-700',
     instructor: 'bg-blue-100 text-blue-700',
+    org_admin: 'bg-purple-100 text-purple-700',
     admin: 'bg-orange-100 text-orange-700',
     superadmin: 'bg-red-100 text-red-700',
   }
   const labels: Record<string, string> = {
     student: '학생',
     instructor: '강사',
+    org_admin: '기업 매니저',
     admin: '관리자',
     superadmin: '최고관리자',
   }
@@ -47,6 +49,7 @@ function SearchForm({ q, role }: { q: string; role: string }) {
         <option value="">전체 역할</option>
         <option value="student">학생</option>
         <option value="instructor">강사</option>
+        <option value="org_admin">기업 매니저</option>
         <option value="admin">관리자</option>
         <option value="superadmin">최고관리자</option>
       </select>

@@ -27,10 +27,11 @@ interface Enrollment {
   } | null
 }
 
-const ROLES = ['student', 'instructor', 'admin', 'superadmin']
+const ROLES = ['student', 'instructor', 'org_admin', 'admin', 'superadmin']
 const ROLE_LABELS: Record<string, string> = {
   student: '학생',
   instructor: '강사',
+  org_admin: '기업 매니저',
   admin: '관리자',
   superadmin: '최고관리자',
 }

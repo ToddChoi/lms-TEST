@@ -117,6 +117,24 @@ export function Header({ profile, navLinks }: HeaderProps) {
                         <Settings className="h-4 w-4" /> 관리자
                       </Link>
                     )}
+                    {['instructor', 'admin', 'superadmin'].includes(profile.role) && (
+                      <Link
+                        href="/instructor"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-silver"
+                      >
+                        <Settings className="h-4 w-4" /> 강사 페이지
+                      </Link>
+                    )}
+                    {['org_admin', 'admin', 'superadmin'].includes(profile.role) && (
+                      <Link
+                        href="/org/admin"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-silver"
+                      >
+                        <Settings className="h-4 w-4" /> 기업 관리자
+                      </Link>
+                    )}
                     <button
                       onClick={handleLogout}
                       className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"

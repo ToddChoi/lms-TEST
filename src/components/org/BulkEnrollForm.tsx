@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Loader2, Users, BookOpen, CheckCircle2 } from 'lucide-react'
 
 interface Member {
@@ -27,6 +28,7 @@ const LEVEL_LABEL: Record<string, string> = {
 }
 
 export function BulkEnrollForm({ members, courses }: Props) {
+  const router = useRouter()
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set())
   const [selectedCourses, setSelectedCourses] = useState<Set<string>>(new Set())
   const [keyword, setKeyword] = useState('')
@@ -78,6 +80,8 @@ export function BulkEnrollForm({ members, courses }: Props) {
         })
         setSelectedMembers(new Set())
         setSelectedCourses(new Set())
+        // 대시보드 KPI / 수강 현황 즉시 반영
+        router.refresh()
       }
     } catch {
       setResult({ ok: false, message: '네트워크 오류' })
