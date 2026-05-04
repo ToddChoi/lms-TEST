@@ -7,6 +7,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge'
 import { CourseReviewSection } from '@/components/courses/CourseReviewSection'
 import { CourseQASection } from '@/components/courses/CourseQASection'
 import { SimilarCoursesSection } from '@/components/courses/SimilarCoursesSection'
+import { CoursePreviewModal } from '@/components/courses/CoursePreviewModal'
 import { ConfirmDialogHost } from '@/components/ui/ConfirmDialog'
 import {
   BookOpen, Clock, Users, Calendar, ChevronDown, User, PlayCircle,
@@ -57,6 +58,7 @@ export default async function CourseDetailPage({ params }: Props) {
     total_duration: number; status: string; level: string
     enroll_start: string | null; enroll_end: string | null
     learn_start: string | null; learn_end: string | null
+    preview_url: string | null
     categories: { id: string; name: string; slug: string } | null
     instructor: { id: string; name: string; avatar_url: string | null } | null
   }
@@ -326,6 +328,17 @@ export default async function CourseDetailPage({ params }: Props) {
                 </div>
               )}
             </div>
+
+            {course.preview_url && (
+              <div className="mb-3">
+                <CoursePreviewModal
+                  previewUrl={course.preview_url}
+                  courseTitle={course.title}
+                  variant="outline"
+                  className="w-full"
+                />
+              </div>
+            )}
 
             <EnrollButton
               courseId={course.id}

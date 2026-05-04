@@ -1,7 +1,16 @@
+'use client'
+
+import { useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Star, Users, Clock, BookOpen, Heart, PlayCircle } from 'lucide-react'
 import { cn, formatDuration } from '@/lib/utils'
+
+/** preview_url 이 mp4/webm 등 직접 재생 가능한 경우만 호버 자동재생 */
+function isHoverPlayable(url: string | null | undefined): boolean {
+  if (!url) return false
+  return /\.(mp4|webm|ogg|mov|m3u8)(\?|$)/i.test(url)
+}
 
 export interface CourseCardV2Data {
   id: string
@@ -87,6 +96,18 @@ export function CourseCardV2({
       ? Math.round((1 - (course.price ?? 0) / course.price_original) * 100)
       : 0
   const grad = gradientFor(course.category?.slug ?? course.category?.name ?? course.id)
+  const hoverPreview = isHoverPlayable(course.preview_url)
+  const videoRef = useRef<HTMLVideoElement>(null)
+
+  function handleMouseEnter() {
+    if (!hoverPreview) return
+    videoRef.current?.play().catch(() => {})
+  }
+  function handleMouseLeave() {
+    if (!hoverPreview) return
+    const v = videoRef.current
+    if (v) { v.pause(); try { v.currentTime = 0 } catch {} }
+  }
 
   const handleWishlist = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -152,6 +173,8 @@ export function CourseCardV2({
   return (
     <Link
       href={`/courses/${course.id}`}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       className={cn(
         'group relative flex flex-col overflow-hidden rounded-2xl bg-white shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg',
         className,
@@ -171,6 +194,20 @@ export function CourseCardV2({
           <div className="flex h-full items-center justify-center">
             <BookOpen className="h-12 w-12 text-white/70" />
           </div>
+        )}
+
+        {/* 호버 시 미리보기 자동재생 (mp4/webm 등) */}
+        {hoverPreview && course.preview_url && (
+          /* eslint-disable-next-line jsx-a11y/media-has-caption */
+          <video
+            ref={videoRef}
+            src={course.preview_url}
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+          />
         )}
 
         {/* 좌상단 배지 */}
