@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, BookOpen, Search, GraduationCap, User } from 'lucide-react'
+import { Home, BookOpen, GraduationCap, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Tab {
@@ -13,11 +13,10 @@ interface Tab {
 }
 
 const TABS: Tab[] = [
-  { href: '/',         label: '홈',      icon: Home,           match: (p) => p === '/' },
-  { href: '/courses',  label: '강좌',     icon: BookOpen,       match: (p) => p.startsWith('/courses') },
-  { href: '/courses?q=', label: '검색',   icon: Search,         match: () => false },
-  { href: '/my',       label: '내 학습',   icon: GraduationCap,  match: (p) => p === '/my' || p.startsWith('/my/courses') },
-  { href: '/my/profile', label: '마이',   icon: User,           match: (p) => p.startsWith('/my/profile') },
+  { href: '/',          label: '홈',     icon: Home,          match: (p) => p === '/' },
+  { href: '/courses',   label: '강좌',   icon: BookOpen,      match: (p) => p.startsWith('/courses') },
+  { href: '/my',        label: '내 학습', icon: GraduationCap, match: (p) => p === '/my' || p.startsWith('/my/courses') },
+  { href: '/my/profile', label: '마이',   icon: User,         match: (p) => p.startsWith('/my/profile') },
 ]
 
 /** 학습 몰입을 위해 숨길 경로 */
@@ -40,7 +39,7 @@ export function MobileBottomNav() {
         aria-label="모바일 하단 네비게이션"
         className="fixed bottom-0 left-0 right-0 z-30 border-t border-gray-200 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.04)] md:hidden"
       >
-        <ul className="mx-auto grid max-w-2xl grid-cols-5">
+        <ul className="mx-auto grid max-w-2xl grid-cols-4">
           {TABS.map((tab) => {
             const active = tab.match(pathname)
             const Icon = tab.icon

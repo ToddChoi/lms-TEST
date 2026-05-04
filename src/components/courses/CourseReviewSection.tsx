@@ -220,10 +220,7 @@ function RatingStars({ rating, size = 4 }: { rating: number; size?: number }) {
       {[1, 2, 3, 4, 5].map((s) => (
         <Star
           key={s}
-          className={cn(
-            's-' + size,
-            s <= rating ? 'fill-amber-400 text-amber-400' : 'text-gray-200'
-          )}
+          className={s <= rating ? 'fill-amber-400 text-amber-400' : 'text-gray-200'}
           style={{ width: `${size * 4}px`, height: `${size * 4}px` }}
         />
       ))}

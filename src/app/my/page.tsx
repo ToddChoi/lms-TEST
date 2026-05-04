@@ -67,17 +67,18 @@ export default async function MyPage() {
       recentProgressPercent = Math.round(((doneLessons ?? 0) / (totalLessons ?? 1)) * 100)
   }
 
-  // ── 최근 30일 학습 시간 + streak 계산 ──
+  // ── 최근 30일 학습 활동 + streak 계산 ──
+  // lesson_progress.watched_seconds 는 lesson 누적값이라 "그날 시청 시간" 추출 불가.
+  // 대신 "그날 last_watched_at 이 갱신된 강의 수" 를 활동 지표로 사용 (정직한 단순화)
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
   const { data: rawProgressList } = await supabase
     .from('lesson_progress')
-    .select('last_watched_at, watched_seconds')
+    .select('last_watched_at')
     .eq('user_id', user.id)
     .gte('last_watched_at', thirtyDaysAgo.toISOString())
   const progressList = (rawProgressList as unknown as
-    { last_watched_at: string; watched_seconds: number }[] | null) ?? []
+    { last_watched_at: string }[] | null) ?? []
 
-  // 일별 학습 시간 합산 (각 lesson_progress 의 watched_seconds 를 그날에 일괄 매핑)
   const dailyMap: Record<string, number> = {}
   const dateSet = new Set<string>()
   for (let i = 0; i < 30; i++) {
@@ -86,7 +87,7 @@ export default async function MyPage() {
   }
   for (const p of progressList) {
     const key = p.last_watched_at.slice(0, 10)
-    if (key in dailyMap) dailyMap[key] += p.watched_seconds || 0
+    if (key in dailyMap) dailyMap[key] += 1
     dateSet.add(key)
   }
   const daily = Object.values(dailyMap)

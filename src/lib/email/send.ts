@@ -8,9 +8,9 @@
  * 사용 예:
  *   await sendEmail({
  *     to: 'user@example.com',
- *     subject: '환영합니다',
- *     react: <WelcomeEmail name="홍길동" />,
- *     template: 'welcome',
+ *     subject: '수강 신청 완료',
+ *     react: <EnrollmentEmail name="홍길동" courseTitle="..." courseId="..." />,
+ *     template: 'enrollment',
  *     userId: 'uuid',
  *   })
  */
@@ -20,7 +20,6 @@ import { createClient as createAdmin } from '@supabase/supabase-js'
 import { getResend, isEmailEnabled, getFromAddress } from './client'
 
 export type EmailTemplate =
-  | 'welcome'
   | 'enrollment'
   | 'completion'
   | 'certificate'
