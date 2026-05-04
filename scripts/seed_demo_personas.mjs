@@ -119,49 +119,49 @@ function makeCourses(catIds, userIds) {
   return [
     {
       slug: 'demo-sql-basics', title: 'SQL 기초부터 실무까지',
-      subtitle: '0부터 시작해 실무에서 통하는 SQL 작성법',
+      description: '0부터 시작해 실무에서 통하는 SQL 작성법',
       category_id: catIds.data, instructor_id: userIds.instructor1,
       level: 'beginner', price: 0, badge: 'best',
     },
     {
       slug: 'demo-python-data', title: 'Python 데이터 분석 입문',
-      subtitle: 'pandas / numpy 로 실제 데이터를 다뤄봅니다',
+      description: 'pandas / numpy 로 실제 데이터를 다뤄봅니다',
       category_id: catIds.data, instructor_id: userIds.instructor1,
       level: 'intermediate', price: 79000, price_original: 99000,
     },
     {
       slug: 'demo-marketing-101', title: '디지털 마케팅 입문',
-      subtitle: '검색·광고·콘텐츠의 기본기',
+      description: '검색·광고·콘텐츠의 기본기',
       category_id: catIds.marketing, instructor_id: userIds.instructor2,
       level: 'beginner', price: 0, badge: 'new',
     },
     {
       slug: 'demo-perf-marketing', title: '퍼포먼스 마케팅 실전',
-      subtitle: 'GA4·Meta 광고·전환 최적화',
+      description: 'GA4·Meta 광고·전환 최적화',
       category_id: catIds.marketing, instructor_id: userIds.instructor2,
       level: 'advanced', price: 149000,
     },
     {
       slug: 'demo-react-intro', title: 'React 입문',
-      subtitle: '컴포넌트 기반 UI 개발 시작하기',
+      description: '컴포넌트 기반 UI 개발 시작하기',
       category_id: catIds.dev, instructor_id: userIds.instructor1,
       level: 'beginner', price: 89000, badge: 'hot',
     },
     {
       slug: 'demo-typescript-real', title: 'TypeScript 실전',
-      subtitle: '타입 안전한 백엔드/프론트엔드 코드',
+      description: '타입 안전한 백엔드/프론트엔드 코드',
       category_id: catIds.dev, instructor_id: userIds.instructor1,
       level: 'intermediate', price: 99000,
     },
     {
       slug: 'demo-chatgpt-work', title: 'ChatGPT 업무 활용법',
-      subtitle: '문서 작성·요약·번역 자동화',
+      description: '문서 작성·요약·번역 자동화',
       category_id: catIds.ai, instructor_id: userIds.instructor2,
       level: 'beginner', price: 0,
     },
     {
       slug: 'demo-onboarding', title: '신입사원 온보딩 가이드',
-      subtitle: '입사 첫 90일 — 빠르게 적응하는 법',
+      description: '입사 첫 90일 — 빠르게 적응하는 법',
       category_id: catIds.hr, instructor_id: userIds.instructor2,
       level: 'beginner', price: 0,
     },
@@ -185,7 +185,15 @@ async function ensureCourses(catIds, userIds) {
       is_featured: true,
       thumbnail_url: null, // 강좌 카드 그라데이션 fallback 활용
     }).select('id').single()
-    if (error) { console.error(`  ✗ ${c.slug}: ${error.message}`); continue }
+    if (error) {
+      console.error(`  ✗ ${c.slug}: ${error.code ?? ''} ${error.message}`)
+      if (error.details) console.error(`     details: ${error.details}`)
+      continue
+    }
+    if (!data?.id) {
+      console.error(`  ✗ ${c.slug}: insert returned no id (silent fail)`)
+      continue
+    }
     idMap[c.slug] = data.id
     console.log(`  ✓ created ${c.slug}`)
   }
