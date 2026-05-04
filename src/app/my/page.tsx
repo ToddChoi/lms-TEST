@@ -1,11 +1,12 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { BookOpen, Award, TrendingUp, Clock } from 'lucide-react'
+import { BookOpen, Award, TrendingUp, Clock, ArrowRight } from 'lucide-react'
 import { ContinueLearningCard } from '@/components/my/ContinueLearningCard'
 import { LearningStreakWidget } from '@/components/my/LearningStreakWidget'
 import { LearningTimeChart } from '@/components/my/LearningTimeChart'
 import { LearningCalendarHeatmap } from '@/components/my/LearningCalendarHeatmap'
+import { CourseCardV2, type CourseCardV2Data } from '@/components/courses/CourseCardV2'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: '마이페이지' }
@@ -54,6 +55,62 @@ export default async function MyPage() {
       total_duration: number; categories: { name: string } | null
     } | null
   }[] | null)?.[0] ?? null
+
+  // ── 수강 중인 강좌 목록 (active enrollments) ──
+  const { data: rawActiveEnrollments } = await supabase
+    .from('enrollments')
+    .select(`
+      course_id,
+      enrolled_at,
+      courses (
+        id, title, thumbnail_url, total_duration, status, price,
+        rating_avg, rating_count, enrolled_count, level, badge,
+        categories (name, slug),
+        instructor:profiles!instructor_id (name, avatar_url)
+      )
+    `)
+    .eq('user_id', user.id)
+    .eq('status', 'active')
+    .order('enrolled_at', { ascending: false })
+    .limit(8)
+  const activeEnrollments = (rawActiveEnrollments as unknown as {
+    course_id: string
+    enrolled_at: string
+    courses: {
+      id: string; title: string; thumbnail_url: string | null
+      total_duration: number; status: string; price: number
+      rating_avg: number | null; rating_count: number | null
+      enrolled_count: number | null; level: string | null; badge: string | null
+      categories: { name: string; slug: string } | null
+      instructor: { name: string | null; avatar_url: string | null } | null
+    } | null
+  }[] | null) ?? []
+
+  // 이어보기 카드와 중복되는 강좌는 제외 (다른 강좌만 표시)
+  const otherActiveCourses = activeEnrollments
+    .filter((e) => e.courses && e.course_id !== recent?.course_id)
+    .slice(0, 6)
+
+  // 수강 중 강좌별 진도 계산
+  const otherCourseIds = otherActiveCourses
+    .map((e) => e.courses?.id)
+    .filter((id): id is string => !!id)
+
+  const progressMap: Record<string, number> = {}
+  if (otherCourseIds.length > 0) {
+    const [{ data: rawLessonCounts }, { data: rawCompletedCounts }] = await Promise.all([
+      supabase.from('lessons').select('course_id').in('course_id', otherCourseIds),
+      supabase.from('lesson_progress').select('course_id')
+        .eq('user_id', user.id).eq('is_completed', true).in('course_id', otherCourseIds),
+    ])
+    const lessonRows = (rawLessonCounts as unknown as { course_id: string }[] | null) ?? []
+    const completedRows = (rawCompletedCounts as unknown as { course_id: string }[] | null) ?? []
+    for (const id of otherCourseIds) {
+      const total = lessonRows.filter((l) => l.course_id === id).length
+      const done = completedRows.filter((p) => p.course_id === id).length
+      progressMap[id] = total > 0 ? Math.round((done / total) * 100) : 0
+    }
+  }
 
   // ── 이어보기 카드용 진도 계산 ──
   let recentProgressPercent = 0
@@ -190,6 +247,54 @@ export default async function MyPage() {
         <LearningStreakWidget streak={streak} weekDots={weekDots} />
         <LearningTimeChart daily={daily} />
       </div>
+
+      {/* 수강 중인 다른 강좌들 (이어보기 카드와 중복 제외) */}
+      {otherActiveCourses.length > 0 && (
+        <section>
+          <div className="mb-4 flex items-end justify-between">
+            <div>
+              <h2 className="text-base font-bold text-navy">수강 중인 강좌</h2>
+              <p className="mt-0.5 text-xs text-gray-500">
+                총 {(enrollmentCount ?? 0).toLocaleString()}개 중 최근 신청 순으로 {otherActiveCourses.length}개 표시
+              </p>
+            </div>
+            <Link
+              href="/my/courses"
+              className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline"
+            >
+              전체보기 <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {otherActiveCourses.map((e) => {
+              const c = e.courses!
+              const data: CourseCardV2Data = {
+                id: c.id,
+                title: c.title,
+                thumbnail_url: c.thumbnail_url,
+                category: c.categories ? { name: c.categories.name, slug: c.categories.slug } : null,
+                instructor: c.instructor ?? null,
+                level: (c.level as CourseCardV2Data['level']) ?? null,
+                rating_avg: c.rating_avg,
+                rating_count: c.rating_count,
+                enrolled_count: c.enrolled_count,
+                total_duration: c.total_duration,
+                price: c.price,
+                badge: (c.badge as CourseCardV2Data['badge']) ?? 'none',
+                status: c.status,
+              }
+              return (
+                <CourseCardV2
+                  key={c.id}
+                  course={data}
+                  variant="progress"
+                  progress={progressMap[c.id] ?? 0}
+                />
+              )
+            })}
+          </div>
+        </section>
+      )}
 
       {/* 학습 캘린더 히트맵 (12주) */}
       <LearningCalendarHeatmap daily={daily84} />

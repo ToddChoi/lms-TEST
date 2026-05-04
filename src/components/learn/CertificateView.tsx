@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Award, Download, Printer, ArrowLeft, CheckCircle } from 'lucide-react'
+import { Award, Download, Printer, ArrowLeft, CheckCircle, Linkedin } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 
@@ -13,6 +13,29 @@ interface CertificateViewProps {
   recipientName: string
   certId: string
   pdfUrl: string | null
+}
+
+/**
+ * LinkedIn "Add to Profile" URL 생성.
+ * https://www.linkedin.com/help/linkedin/answer/a567169 참고.
+ */
+function buildLinkedInUrl(params: {
+  certName: string
+  organizationName: string
+  issuedAt: string
+  certNumber: string
+  certUrl: string
+}): string {
+  const issued = new Date(params.issuedAt)
+  const u = new URL('https://www.linkedin.com/profile/add')
+  u.searchParams.set('startTask', 'CERTIFICATION_NAME')
+  u.searchParams.set('name', params.certName)
+  u.searchParams.set('organizationName', params.organizationName)
+  u.searchParams.set('issueYear', String(issued.getFullYear()))
+  u.searchParams.set('issueMonth', String(issued.getMonth() + 1))
+  u.searchParams.set('certUrl', params.certUrl)
+  u.searchParams.set('certId', params.certNumber)
+  return u.toString()
 }
 
 export function CertificateView({
@@ -95,30 +118,50 @@ export function CertificateView({
       </div>
 
       {/* 액션 버튼 */}
-      <div className="flex w-full max-w-2xl gap-3 print:hidden">
-        <Button
-          variant="outline"
-          className="flex-1"
-          onClick={() => window.print()}
-        >
-          <Printer className="h-4 w-4" /> 인쇄
-        </Button>
-
-        {generatedUrl ? (
-          <a
-            href={generatedUrl}
-            download={`${certNumber}.pdf`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-light"
+      <div className="flex w-full max-w-2xl flex-col gap-3 print:hidden">
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            className="flex-1"
+            onClick={() => window.print()}
           >
-            <Download className="h-4 w-4" /> PDF 다운로드
-          </a>
-        ) : (
-          <Button className="flex-1" loading={generating} onClick={handleGeneratePdf}>
-            <Download className="h-4 w-4" /> PDF 생성
+            <Printer className="h-4 w-4" /> 인쇄
           </Button>
-        )}
+
+          {generatedUrl ? (
+            <a
+              href={generatedUrl}
+              download={`${certNumber}.pdf`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-light"
+            >
+              <Download className="h-4 w-4" /> PDF 다운로드
+            </a>
+          ) : (
+            <Button className="flex-1" loading={generating} onClick={handleGeneratePdf}>
+              <Download className="h-4 w-4" /> PDF 생성
+            </Button>
+          )}
+        </div>
+
+        {/* LinkedIn 프로필에 추가 */}
+        <a
+          href={buildLinkedInUrl({
+            certName: courseName,
+            organizationName: 'Ingrow LMS',
+            issuedAt,
+            certNumber,
+            certUrl: typeof window !== 'undefined'
+              ? `${window.location.origin}/my/certificates/${certId}`
+              : `/my/certificates/${certId}`,
+          })}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 rounded-xl bg-[#0A66C2] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#0654a3]"
+        >
+          <Linkedin className="h-4 w-4" /> LinkedIn 프로필에 추가
+        </a>
       </div>
     </div>
   )
