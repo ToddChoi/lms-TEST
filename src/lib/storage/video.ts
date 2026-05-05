@@ -17,7 +17,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 const BUCKET = 'course-videos'
 const TTL_SECONDS = 60 * 60 * 6  // 6h
 
-function isExternal(url: string): boolean {
+// export 는 unit test 용 — runtime 에선 signVideoUrl 만 호출.
+export function isExternal(url: string): boolean {
   return /youtube\.com|youtu\.be|vimeo\.com/.test(url)
 }
 
@@ -28,7 +29,7 @@ function isExternal(url: string): boolean {
  *   (signed URL 을 다시 사인하는 경우 — TTL 갱신)
  * - "{path}" 형태 (bucket 내 상대 경로)
  */
-function extractStoragePath(rawUrl: string): string | null {
+export function extractStoragePath(rawUrl: string): string | null {
   if (!rawUrl) return null
   // 절대 URL 이면 storage 경로인지 확인
   if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
