@@ -1,19 +1,9 @@
-import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-
-async function checkAdmin(supabase: ReturnType<typeof createClient>) {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  const { data: rawProfile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  const profile = rawProfile as unknown as { role: string } | null
-  if (!profile || !['admin', 'superadmin'].includes(profile.role)) return null
-  return user
-}
+import { requireAdmin } from '../_guard'
 
 export async function POST(req: NextRequest) {
-  const supabase = createClient()
-  const admin = await checkAdmin(supabase)
-  if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const { guard, supabase } = await requireAdmin()
+  if (guard) return guard
 
   const body = await req.json()
   const { name, contact_name, contact_email, contract_start, contract_end, is_active } = body as {
@@ -45,9 +35,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const supabase = createClient()
-  const admin = await checkAdmin(supabase)
-  if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const { guard, supabase } = await requireAdmin()
+  if (guard) return guard
 
   const body = await req.json()
   const { id, ...updates } = body as { id?: string } & Record<string, unknown>
@@ -63,9 +52,8 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const supabase = createClient()
-  const admin = await checkAdmin(supabase)
-  if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const { guard, supabase } = await requireAdmin()
+  if (guard) return guard
 
   const { id } = (await req.json()) as { id?: string }
   if (!id) return NextResponse.json({ error: 'id 누락' }, { status: 400 })

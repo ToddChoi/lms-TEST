@@ -2,6 +2,8 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
+// 타입 미부여 — Database 타입이 일부 라우트(categories 등)에서 strict 충돌을 일으켜
+// 인라인 패턴과 동일하게 untyped 클라이언트 유지. 안전성은 RLS/role guard 가 담당.
 export function makeSupabase() {
   const cookieStore = cookies()
   return createServerClient(

@@ -1,19 +1,9 @@
-import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-
-async function checkAdmin(supabase: ReturnType<typeof createClient>) {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  const { data: rawProfile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  const profile = rawProfile as unknown as { role: string } | null
-  if (!profile || !['admin', 'superadmin'].includes(profile.role)) return null
-  return user
-}
+import { requireAdmin } from '../../../_guard'
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const supabase = createClient()
-  const admin = await checkAdmin(supabase)
-  if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const { guard, supabase } = await requireAdmin()
+  if (guard) return guard
 
   const body = await req.json()
   const { email, department, is_manager } = body as {
@@ -23,7 +13,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
   if (!email) return NextResponse.json({ error: '이메일은 필수입니다.' }, { status: 400 })
 
-  const { data: rawUserProfile } = await supabase
+  const { data: rawUserProfile } = await supabase!
     .from('profiles')
     .select('id, name, email')
     .eq('email', email)
@@ -59,9 +49,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const supabase = createClient()
-  const admin = await checkAdmin(supabase)
-  if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const { guard, supabase } = await requireAdmin()
+  if (guard) return guard
 
   const body = await req.json()
   const { memberId, is_manager } = body as { memberId?: string; is_manager?: boolean }
@@ -78,9 +67,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
-  const supabase = createClient()
-  const admin = await checkAdmin(supabase)
-  if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const { guard, supabase } = await requireAdmin()
+  if (guard) return guard
 
   const body = await req.json()
   const { memberId } = body as { memberId?: string }
