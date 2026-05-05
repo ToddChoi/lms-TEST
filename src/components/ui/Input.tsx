@@ -18,7 +18,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label
             htmlFor={inputId}
-            className="text-sm font-medium text-navy"
+            className="text-body-sm font-medium text-navy"
           >
             {label}
           </label>
@@ -26,17 +26,27 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         <input
           ref={ref}
           id={inputId}
+          aria-invalid={error ? 'true' : undefined}
+          aria-describedby={error ? `${inputId}-error` : hint ? `${inputId}-hint` : undefined}
           className={cn(
-            'h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-navy placeholder:text-gray-400',
+            'h-10 w-full rounded-md border border-border-subtle bg-surface px-3 text-body-sm text-navy placeholder:text-gray-400',
             'focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent',
-            'disabled:cursor-not-allowed disabled:bg-silver disabled:opacity-60',
-            error && 'border-red-400 focus:border-red-400 focus:ring-red-400',
+            'disabled:cursor-not-allowed disabled:bg-surface-muted disabled:opacity-60',
+            error && 'border-danger focus:border-danger focus:ring-danger',
             className
           )}
           {...props}
         />
-        {error && <p className="text-xs text-red-500">{error}</p>}
-        {hint && !error && <p className="text-xs text-gray-500">{hint}</p>}
+        {error && (
+          <p id={`${inputId}-error`} className="text-caption text-danger">
+            {error}
+          </p>
+        )}
+        {hint && !error && (
+          <p id={`${inputId}-hint`} className="text-caption text-gray-500">
+            {hint}
+          </p>
+        )}
       </div>
     )
   }

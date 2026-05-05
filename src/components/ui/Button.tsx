@@ -28,7 +28,9 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         disabled={disabled || loading}
         className={cn(
-          'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
+          'inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors duration-180 ease-out-snap',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2',
+          'disabled:pointer-events-none disabled:opacity-50',
           {
             // Variants
             'bg-accent text-white hover:bg-accent-light active:bg-navy':
@@ -37,11 +39,11 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
               variant === 'secondary',
             'border border-accent text-accent hover:bg-accent-pale':
               variant === 'outline',
-            'text-navy hover:bg-silver': variant === 'ghost',
+            'text-navy hover:bg-surface-muted': variant === 'ghost',
             // Sizes
-            'h-8 px-3 text-sm': size === 'sm',
-            'h-10 px-4 text-sm': size === 'md',
-            'h-12 px-6 text-base': size === 'lg',
+            'h-8 px-3 text-body-sm':  size === 'sm',
+            'h-10 px-4 text-body-sm': size === 'md',
+            'h-12 px-6 text-body':    size === 'lg',
           },
           className
         )}

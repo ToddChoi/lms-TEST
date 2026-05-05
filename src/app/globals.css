@@ -25,11 +25,21 @@
     @apply font-bold tracking-tight;
   }
 
-  /* 키보드 사용자에게만 보이는 포커스 링 */
+  /*
+    키보드 사용자 포커스 링 — Phase 3 정리.
+    - outline-offset 3px 로 뗌 (이전 2px 은 텍스트 위에서 흐릿했음)
+    - 라운드 6px 로 sm 토큰 매칭
+    - box-shadow 없이 outline 만 (성능·접근성 표준)
+  */
   :focus-visible {
     outline: 2px solid rgb(var(--color-primary-rgb));
-    outline-offset: 2px;
-    border-radius: 4px;
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+  /* button/a 같이 자체 라운드 큰 인터랙티브는 outline-offset 만으로 충분 */
+  button:focus-visible,
+  a:focus-visible {
+    border-radius: inherit;
   }
 }
 

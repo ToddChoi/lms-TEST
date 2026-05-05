@@ -80,39 +80,37 @@ export function ConfirmDialogHost() {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm rounded-2xl bg-white shadow-xl"
+        className="w-full max-w-sm rounded-lg bg-surface shadow-elev-3"
       >
-        <div className="px-6 pt-6 pb-4">
+        <div className="px-6 pb-4 pt-6">
           {state.title && (
             <div className="mb-3 flex items-center gap-2.5">
               {isDanger && (
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-red-50">
-                  <AlertTriangle className="h-5 w-5 text-red-500" />
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-danger-soft">
+                  <AlertTriangle className="h-5 w-5 text-danger" />
                 </span>
               )}
-              <h3 className="text-base font-semibold text-[#0B1F3A]">
-                {state.title}
-              </h3>
+              <h3 className="text-body font-semibold text-navy">{state.title}</h3>
             </div>
           )}
-          <p className="text-sm leading-relaxed text-gray-600 whitespace-pre-line">
+          <p className="whitespace-pre-line text-body-sm leading-relaxed text-gray-600">
             {state.message}
           </p>
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-gray-100 px-4 py-3 bg-gray-50 rounded-b-2xl">
+        <div className="flex justify-end gap-2 rounded-b-lg border-t border-border-subtle bg-surface-subtle px-4 py-3">
           <button
             onClick={() => close(false)}
-            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 transition"
+            className="rounded-md border border-border bg-surface px-4 py-2 text-body-sm font-medium text-gray-700 transition-colors duration-180 ease-out-snap hover:bg-surface-muted"
           >
             {cancelLabel}
           </button>
           <button
             onClick={() => close(true)}
-            className={`rounded-lg px-4 py-2 text-sm font-medium text-white transition ${
+            className={`rounded-md px-4 py-2 text-body-sm font-medium text-white transition-colors duration-180 ease-out-snap ${
               isDanger
-                ? 'bg-red-500 hover:bg-red-600'
-                : 'bg-[#2D7DD2] hover:bg-[#2566b0]'
+                ? 'bg-danger hover:bg-danger/90'
+                : 'bg-accent hover:bg-accent-light'
             }`}
           >
             {confirmLabel}
