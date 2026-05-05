@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
+import { getTenant } from '@/lib/tenant'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -48,16 +49,23 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  // 사이트 설정에서 primary_color 가져오기 (실패해도 무시 — 기본값 사용)
+  // primary_color 결정 — 회사(tenant) > 사이트 설정 > globals.css 디폴트.
+  // 회사 subdomain 으로 접근 시 (예: acme.ingrow.com) 자동으로 해당 회사 컬러.
   let primaryRgb: string | null = null
   try {
-    const supabase = createClient()
-    const { data } = await supabase
-      .from('site_settings')
-      .select('value')
-      .eq('key', 'primary_color')
-      .maybeSingle()
-    primaryRgb = hexToRgbTriplet((data as unknown as { value: string } | null)?.value)
+    const tenant = await getTenant()
+    const tenantColor = tenant?.primary_color ?? null
+    if (tenantColor) {
+      primaryRgb = hexToRgbTriplet(tenantColor)
+    } else {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('site_settings')
+        .select('value')
+        .eq('key', 'primary_color')
+        .maybeSingle()
+      primaryRgb = hexToRgbTriplet((data as unknown as { value: string } | null)?.value)
+    }
   } catch {
     // 비로그인 / DB 미연결 등 — 무시
   }

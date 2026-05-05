@@ -3,7 +3,20 @@ import { NextResponse, type NextRequest } from 'next/server'
 import type { Database } from '@/types/database'
 
 export async function middleware(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request })
+  // 서버 컴포넌트가 headers() 로 읽을 수 있도록 request 헤더 복사 후 mutation.
+  // tenant override (개발 ?tenant=acme) 같은 값을 여기에 주입.
+  const requestHeaders = new Headers(request.headers)
+
+  // tenant override — production host 기반 subdomain 외 개발/프리뷰 검증용.
+  // host 매칭이 1순위이고, 이 헤더는 fallback (lib/tenant.ts 참고).
+  const tenantQuery = request.nextUrl.searchParams.get('tenant')
+  if (tenantQuery && /^[a-z0-9-]{2,32}$/i.test(tenantQuery)) {
+    requestHeaders.set('x-tenant-override', tenantQuery.toLowerCase())
+  }
+
+  let supabaseResponse = NextResponse.next({
+    request: { headers: requestHeaders },
+  })
 
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

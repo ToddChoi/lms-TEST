@@ -2,6 +2,7 @@ import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
 import { MobileBottomNav } from '@/components/layout/MobileBottomNav'
 import { createClient } from '@/lib/supabase/server'
+import { getTenant } from '@/lib/tenant'
 import type { Profile, NavLink } from '@/types/database'
 
 export default async function PublicLayout({ children }: { children: React.ReactNode }) {
@@ -10,6 +11,9 @@ export default async function PublicLayout({ children }: { children: React.React
   let serviceLinks: NavLink[] = []
   let supportLinks: NavLink[] = []
   let copyright: string | undefined
+
+  // 현재 요청의 회사(tenant) 해석. white-label 회사면 Header 가 회사 로고로 노출.
+  const tenant = await getTenant().catch(() => null)
 
   try {
     const supabase = createClient()
@@ -56,7 +60,11 @@ export default async function PublicLayout({ children }: { children: React.React
 
   return (
     <div className="flex min-h-screen flex-col">
-      <Header profile={profile} navLinks={headerLinks} />
+      <Header
+        profile={profile}
+        navLinks={headerLinks}
+        tenant={tenant ? { name: tenant.name, logo_url: tenant.logo_url } : null}
+      />
       <main className="flex-1">{children}</main>
       <Footer serviceLinks={serviceLinks} supportLinks={supportLinks} copyright={copyright} />
       <MobileBottomNav />

@@ -15,6 +15,8 @@ import { Logo } from '@/components/brand/Logo'
 interface HeaderProps {
   profile: Profile | null
   navLinks?: NavLink[]
+  /** P4 — 회사 subdomain 진입 시 회사 로고 노출 */
+  tenant?: { name: string; logo_url: string | null } | null
 }
 
 const DEFAULT_NAV: NavLink[] = [
@@ -25,7 +27,7 @@ const DEFAULT_NAV: NavLink[] = [
   { id: 'default-4', label: '문의하기', href: '/contact', target: '_self' },
 ]
 
-export function Header({ profile, navLinks }: HeaderProps) {
+export function Header({ profile, navLinks, tenant }: HeaderProps) {
   const router = useRouter()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
@@ -43,9 +45,18 @@ export function Header({ profile, navLinks }: HeaderProps) {
   return (
     <header className="sticky top-0 z-50 border-b border-gray-100 bg-white shadow-sm">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* 로고 — Phase 1 자체 마크 (BookOpen 클리셰 → Logo 컴포넌트) */}
-        <Link href="/" className="flex items-center text-navy">
-          <Logo size="sm" />
+        {/* 로고 — 회사(tenant) 로고 우선, 없으면 기본 Logo. */}
+        <Link href="/" className="flex items-center text-navy" aria-label={tenant?.name ?? 'Ingrow LMS'}>
+          {tenant?.logo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={tenant.logo_url}
+              alt={tenant.name}
+              className="h-8 max-w-[160px] object-contain"
+            />
+          ) : (
+            <Logo size="sm" />
+          )}
         </Link>
 
         {/* 데스크탑 내비게이션 */}

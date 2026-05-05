@@ -14,11 +14,12 @@
  * 서버 컴포넌트 — 클라이언트 번들 영향 없음.
  */
 import { createClient } from '@/lib/supabase/server'
+import { getTenant } from '@/lib/tenant'
 import { REGISTRY, isKnownBlockType } from './registry'
 
 interface Props {
   surface: string
-  /** P3 — multi-tenant 시점에 host 미들웨어가 주입 */
+  /** 외부에서 회사 ID 강제 지정 — 보통 비워둠 (getTenant 자동 해석) */
   companyId?: string
 }
 
@@ -35,15 +36,35 @@ interface BlockRow {
 export async function SurfaceBlocks({ surface, companyId }: Props) {
   const supabase = createClient()
 
-  // P2 스코프: scope_type='global' 만 선택. P3 에서 company override 추가.
-  const { data: rawBlocks } = await supabase
-    .from('content_blocks')
-    .select('id, block_type, config, audience, sort_order, scope_type, company_id')
-    .eq('surface', surface)
-    .eq('status', 'published')
-    .eq('scope_type', 'global')
-    .order('sort_order')
-  const blocks = (rawBlocks as unknown as BlockRow[] | null) ?? []
+  // P4: tenant 해석 — host subdomain 으로 회사 자동 인식.
+  const tenant = companyId ? null : await getTenant().catch(() => null)
+  const tenantId = companyId ?? tenant?.id ?? null
+
+  // 1) 회사 전용 블록 조회 — 회사 컨텍스트 있을 때만.
+  // 2) 없으면 global 블록 노출 (fallback).
+  // override 패턴: 회사 블록이 1개라도 있으면 그것만 노출. 회사 LP 가 global 과 섞이는 혼란 방지.
+  let blocks: BlockRow[] = []
+  if (tenantId) {
+    const { data: rawCompany } = await supabase
+      .from('content_blocks')
+      .select('id, block_type, config, audience, sort_order, scope_type, company_id')
+      .eq('surface', surface)
+      .eq('status', 'published')
+      .eq('scope_type', 'company')
+      .eq('company_id', tenantId)
+      .order('sort_order')
+    blocks = (rawCompany as unknown as BlockRow[] | null) ?? []
+  }
+  if (blocks.length === 0) {
+    const { data: rawGlobal } = await supabase
+      .from('content_blocks')
+      .select('id, block_type, config, audience, sort_order, scope_type, company_id')
+      .eq('surface', surface)
+      .eq('status', 'published')
+      .eq('scope_type', 'global')
+      .order('sort_order')
+    blocks = (rawGlobal as unknown as BlockRow[] | null) ?? []
+  }
   if (blocks.length === 0) return null
 
   // ── 의존 데이터 prefetch ─────────────────────────
@@ -105,7 +126,7 @@ export async function SurfaceBlocks({ surface, companyId }: Props) {
         // 컴포넌트마다 추가 prop (courses/categories) 가 다르므로 union 타입을 좁히지 않고
         // any 캐스트 — 각 블록 컴포넌트 자체는 타입 안전 (BlockProps + InjectedProps).
         const Component = REGISTRY[b.block_type] as unknown as React.ComponentType<Record<string, unknown>>
-        const context = { companyId }
+        const context = { companyId: tenantId ?? undefined }
 
         if (b.block_type === 'featured_courses' || b.block_type === 'company_collection') {
           const cfg = b.config as { course_ids?: string[] }
