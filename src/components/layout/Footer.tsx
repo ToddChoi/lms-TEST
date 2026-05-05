@@ -1,6 +1,6 @@
 import Link from 'next/link'
-import { BookOpen } from 'lucide-react'
 import type { NavLink } from '@/types/database'
+import { Logo } from '@/components/brand/Logo'
 
 interface FooterProps {
   serviceLinks?: NavLink[]
@@ -32,11 +32,8 @@ export function Footer({ serviceLinks, supportLinks, copyright }: FooterProps) {
         <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
           {/* 브랜드 */}
           <div className="col-span-1 md:col-span-2">
-            <Link href="/" className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-navy">
-                <BookOpen className="h-4 w-4 text-white" />
-              </div>
-              <span className="text-lg font-bold text-navy">Ingrow LMS</span>
+            <Link href="/" className="flex items-center text-navy">
+              <Logo size="sm" />
             </Link>
             <p className="mt-3 text-sm text-gray-500">
               AI·실무 역량 강화를 위한 이러닝 플랫폼.

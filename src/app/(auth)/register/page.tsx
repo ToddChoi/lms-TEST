@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { BookOpen, CheckCircle } from 'lucide-react'
+import { CheckCircle } from 'lucide-react'
+import { Logo } from '@/components/brand/Logo'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -99,11 +100,8 @@ export default function RegisterPage() {
       <div className="w-full max-w-md">
         {/* 로고 */}
         <div className="mb-8 flex flex-col items-center">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-navy">
-              <BookOpen className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-xl font-bold text-navy">Ingrow LMS</span>
+          <Link href="/" className="flex items-center text-navy">
+            <Logo size="md" />
           </Link>
           <h1 className="mt-6 text-2xl font-bold text-navy">회원가입</h1>
           <p className="mt-1 text-sm text-gray-500">Ingrow LMS와 함께 성장하세요</p>

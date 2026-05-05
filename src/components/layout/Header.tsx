@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import type { Profile, NavLink } from '@/types/database'
 import { HeaderSearch } from './HeaderSearch'
 import { CategoryMegaMenu } from './CategoryMegaMenu'
+import { Logo } from '@/components/brand/Logo'
 
 interface HeaderProps {
   profile: Profile | null
@@ -42,12 +43,9 @@ export function Header({ profile, navLinks }: HeaderProps) {
   return (
     <header className="sticky top-0 z-50 border-b border-gray-100 bg-white shadow-sm">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* 로고 */}
-        <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-navy">
-            <BookOpen className="h-4 w-4 text-white" />
-          </div>
-          <span className="text-lg font-bold text-navy">Ingrow LMS</span>
+        {/* 로고 — Phase 1 자체 마크 (BookOpen 클리셰 → Logo 컴포넌트) */}
+        <Link href="/" className="flex items-center text-navy">
+          <Logo size="sm" />
         </Link>
 
         {/* 데스크탑 내비게이션 */}

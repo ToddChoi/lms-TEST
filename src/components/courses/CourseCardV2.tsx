@@ -47,11 +47,12 @@ const LEVEL_LABELS: Record<string, { label: string; cls: string }> = {
   all:          { label: '전체', cls: 'bg-slate-100 text-slate-700'   },
 }
 
+// 듀오톤 — 형광 솔리드 → 연배경 + 진글씨 + 옅은 테두리. 2024+ 룩.
 const BADGE_STYLES: Record<string, { label: string; cls: string }> = {
-  new:   { label: 'NEW',   cls: 'bg-blue-500   text-white' },
-  best:  { label: 'BEST',  cls: 'bg-rose-500   text-white' },
-  hot:   { label: 'HOT',   cls: 'bg-orange-500 text-white' },
-  event: { label: 'EVENT', cls: 'bg-purple-500 text-white' },
+  new:   { label: 'NEW',   cls: 'bg-info-soft    text-info    ring-1 ring-info-border'    },
+  best:  { label: 'BEST',  cls: 'bg-danger-soft  text-danger  ring-1 ring-danger-border'  },
+  hot:   { label: 'HOT',   cls: 'bg-warning-soft text-warning ring-1 ring-warning-border' },
+  event: { label: 'EVENT', cls: 'bg-accent-pale  text-accent  ring-1 ring-accent/30'      },
 }
 
 /** 카테고리명에 따라 결정되는 fallback 그라데이션 (썸네일 없을 때) */

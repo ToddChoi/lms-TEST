@@ -18,6 +18,11 @@ export type ContactType = 'general' | 'b2b' | 'course' | 'technical'
 export type CourseBadge = 'none' | 'new' | 'best' | 'discount' | 'hot'
 export type PaymentStatus = 'pending' | 'succeeded' | 'failed' | 'refunded'
 export type RecommendationContext = 'dashboard' | 'similar' | 'next_step' | 'course_list'
+// Phase 1 — multi-tenant + page builder + i18n
+export type CmsScope = 'global' | 'company'
+export type PageStatus = 'draft' | 'published'
+export type ContentBlockStatus = 'draft' | 'published'
+export type MediaKind = 'image' | 'video' | 'pdf' | 'other'
 
 export interface Database {
   public: {
@@ -419,7 +424,7 @@ export interface Database {
         }
         Update: Partial<Database['public']['Tables']['site_settings']['Insert']>
       }
-      // ─── B2B (schema.sql) ────────────────────────────
+      // ─── B2B (schema.sql + Phase 1 white-label) ──────
       companies: {
         Row: {
           id: string
@@ -429,6 +434,13 @@ export interface Database {
           contract_start: string | null
           contract_end: string | null
           is_active: boolean
+          // Phase 1 white-label (모두 nullable — 미설정 = 기본 브랜드)
+          subdomain: string | null
+          logo_url: string | null
+          primary_color: string | null
+          hero_image_url: string | null
+          is_white_label: boolean
+          email_domains: string[]
           created_at: string
         }
         Insert: {
@@ -438,6 +450,12 @@ export interface Database {
           contract_start?: string | null
           contract_end?: string | null
           is_active?: boolean
+          subdomain?: string | null
+          logo_url?: string | null
+          primary_color?: string | null
+          hero_image_url?: string | null
+          is_white_label?: boolean
+          email_domains?: string[]
         }
         Update: Partial<Database['public']['Tables']['companies']['Insert']>
       }
@@ -647,6 +665,139 @@ export interface Database {
         }
         Update: { payload?: Record<string, unknown> }
       }
+      // ─── Phase 1: pages — 약관/개인정보/회사 랜딩 ────
+      pages: {
+        Row: {
+          id: string
+          slug: string
+          title: string
+          body: string | null
+          seo: Record<string, unknown>
+          status: PageStatus
+          scope_type: CmsScope
+          company_id: string | null
+          published_at: string | null
+          author_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          slug: string
+          title: string
+          body?: string | null
+          seo?: Record<string, unknown>
+          status?: PageStatus
+          scope_type?: CmsScope
+          company_id?: string | null
+          published_at?: string | null
+          author_id?: string | null
+        }
+        Update: Partial<Database['public']['Tables']['pages']['Insert']>
+      }
+      // ─── Phase 1: content_blocks — 페이지 빌더 일반화 ──
+      content_blocks: {
+        Row: {
+          id: string
+          surface: string
+          block_type: string
+          config: Record<string, unknown>
+          audience: Record<string, unknown>
+          sort_order: number
+          status: ContentBlockStatus
+          scope_type: CmsScope
+          company_id: string | null
+          starts_at: string | null
+          ends_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          surface: string
+          block_type: string
+          config?: Record<string, unknown>
+          audience?: Record<string, unknown>
+          sort_order?: number
+          status?: ContentBlockStatus
+          scope_type?: CmsScope
+          company_id?: string | null
+          starts_at?: string | null
+          ends_at?: string | null
+        }
+        Update: Partial<Database['public']['Tables']['content_blocks']['Insert']>
+      }
+      block_types: {
+        Row: {
+          id: string
+          label: string
+          description: string | null
+          fields: unknown[]
+          sort_order: number
+          is_visible: boolean
+          created_at: string
+        }
+        Insert: {
+          id: string
+          label: string
+          description?: string | null
+          fields?: unknown[]
+          sort_order?: number
+          is_visible?: boolean
+        }
+        Update: Partial<Database['public']['Tables']['block_types']['Insert']>
+      }
+      // ─── Phase 1: media_assets — 미디어 라이브러리 ───
+      media_assets: {
+        Row: {
+          id: string
+          url: string
+          bucket: string | null
+          kind: MediaKind
+          alt: string | null
+          width: number | null
+          height: number | null
+          size_bytes: number | null
+          tags: string[]
+          uploaded_by: string | null
+          scope_type: CmsScope
+          company_id: string | null
+          created_at: string
+        }
+        Insert: {
+          url: string
+          bucket?: string | null
+          kind: MediaKind
+          alt?: string | null
+          width?: number | null
+          height?: number | null
+          size_bytes?: number | null
+          tags?: string[]
+          uploaded_by?: string | null
+          scope_type?: CmsScope
+          company_id?: string | null
+        }
+        Update: Partial<Database['public']['Tables']['media_assets']['Insert']>
+      }
+      // ─── Phase 1: translations — i18n fallback 패턴 ──
+      translations: {
+        Row: {
+          id: string
+          table_name: string
+          row_id: string
+          column_name: string
+          lang: string
+          value: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          table_name: string
+          row_id: string
+          column_name: string
+          lang: string
+          value: string
+        }
+        Update: { value?: string }
+      }
     }
   }
 }
@@ -677,6 +828,11 @@ export type CourseAnswer = Database['public']['Tables']['course_answers']['Row']
 export type LessonNote = Database['public']['Tables']['lesson_notes']['Row']
 export type NotificationLog = Database['public']['Tables']['notification_logs']['Row']
 export type UserNotificationPreference = Database['public']['Tables']['user_notification_preferences']['Row']
+export type Page = Database['public']['Tables']['pages']['Row']
+export type ContentBlock = Database['public']['Tables']['content_blocks']['Row']
+export type BlockType = Database['public']['Tables']['block_types']['Row']
+export type MediaAsset = Database['public']['Tables']['media_assets']['Row']
+export type Translation = Database['public']['Tables']['translations']['Row']
 
 // 확장 타입 (JOIN 결과)
 export type CourseWithCategory = Course & {

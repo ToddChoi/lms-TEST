@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { BookOpen } from 'lucide-react'
+import { Logo } from '@/components/brand/Logo'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -96,11 +96,8 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-silver px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 flex flex-col items-center">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-navy">
-              <BookOpen className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-xl font-bold text-navy">Ingrow LMS</span>
+          <Link href="/" className="flex items-center text-navy">
+            <Logo size="md" />
           </Link>
           <h1 className="mt-6 text-2xl font-bold text-navy">로그인</h1>
           <p className="mt-1 text-sm text-gray-500">계속하려면 로그인하세요</p>
