@@ -45,6 +45,7 @@ loadDotEnvLocal()
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 /**
  * 키 형식 검증 — 흔한 실수를 사전 차단.
@@ -96,9 +97,20 @@ if (!process.env.__ENV_BANNER_SHOWN) {
   console.log(`✓ env: ${verdict.kind} 키 로드됨 — ${verdict.reason}`)
 }
 
+// ── ANON KEY 도 분류 (브라우저 노출용 — sb_publishable_ 또는 legacy JWT 만 안전)
+const anonVerdict = classifyKey(ANON_KEY)
+if (ANON_KEY && anonVerdict.kind === 'sb_secret') {
+  console.error('❌ NEXT_PUBLIC_SUPABASE_ANON_KEY 슬롯에 sb_secret_ 키가 들어있음')
+  console.error('   → 이 값은 클라이언트 번들에 노출되므로 publishable 만 사용해야 합니다.')
+  console.error('   → Supabase Dashboard → API Keys → "Publishable keys" 의 sb_publishable_... 값으로 교체.')
+  console.error('   → 브라우저에서 "Forbidden use of secret API key in browser" 에러의 원인.')
+  process.exit(1)
+}
+
 export const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 })
 
-export { SUPABASE_URL, SERVICE_ROLE_KEY }
+export { SUPABASE_URL, SERVICE_ROLE_KEY, ANON_KEY }
 export const KEY_KIND = verdict.kind
+export const ANON_KEY_KIND = anonVerdict.kind
