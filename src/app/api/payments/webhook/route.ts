@@ -86,32 +86,23 @@ export async function POST(request: Request) {
           })
           .eq('id', paymentId)
 
-        // 수강 등록 — 중복 시 무시
-        const { data: rawExisting } = await admin
+        // 수강 등록 — Stripe webhook 재전송 대비 idempotent upsert.
+        // UNIQUE(user_id, course_id) 제약을 활용해 onConflict 시 status='active' 로
+        // 갱신. 중복 INSERT 로 23505 → 500 → Stripe 무한 재시도 루프를 방지.
+        const { error: upsertErr } = await (admin as any)
           .from('enrollments')
-          .select('id, status')
-          .eq('user_id', userId)
-          .eq('course_id', courseId)
-          .maybeSingle()
-        const existing = rawExisting as unknown as {
-          id: string
-          status: string
-        } | null
-
-        if (!existing) {
-          await (admin as any).from('enrollments').insert({
-            user_id: userId,
-            course_id: courseId,
-            status: 'active',
-          })
-        } else if (existing.status !== 'active') {
-          await (admin as any)
-            .from('enrollments')
-            .update({
+          .upsert(
+            {
+              user_id: userId,
+              course_id: courseId,
               status: 'active',
               enrolled_at: new Date().toISOString(),
-            })
-            .eq('id', existing.id)
+            },
+            { onConflict: 'user_id,course_id' }
+          )
+        if (upsertErr) {
+          console.error('[stripe webhook] enrollment upsert failed:', upsertErr)
+          throw upsertErr
         }
         break
       }

@@ -1,17 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient as createAdmin } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { sendEmail } from '@/lib/email/send'
 import { ContactAdminEmail } from '@/lib/email/templates/contact-admin'
 import { ContactUserEmail } from '@/lib/email/templates/contact-user'
-
-function makeAdminClient() {
-  return createAdmin(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
-}
 
 const ALLOWED_TYPES = ['general', 'b2b', 'course', 'technical'] as const
 type ContactType = (typeof ALLOWED_TYPES)[number]
@@ -33,7 +24,6 @@ export async function POST(req: NextRequest) {
     honeypot?: string
   }
 
-  // honeypot: 사람은 채우지 않는 숨김 필드. 값이 있으면 봇으로 간주하고 조용히 성공 응답.
   if (honeypot && honeypot.trim().length > 0) {
     return NextResponse.json({ ok: true })
   }
@@ -42,26 +32,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '필수 항목이 누락됐습니다.' }, { status: 400 })
   }
 
-  // 이메일 형식 간단 검증
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
     return NextResponse.json({ error: '이메일 형식을 확인해주세요.' }, { status: 400 })
+  }
+
+  // 길이 상한 — 폼 abuse 1차 방어
+  if (name.length > 100 || email.length > 200 || (subject ?? '').length > 200 || message.length > 5000) {
+    return NextResponse.json({ error: '입력값이 너무 깁니다.' }, { status: 400 })
   }
 
   const type: ContactType = ALLOWED_TYPES.includes(rawType as ContactType)
     ? (rawType as ContactType)
     : 'general'
 
-  // B2B 인 경우 회사명 필수
   if (type === 'b2b' && !company?.trim()) {
     return NextResponse.json({ error: '회사명을 입력해주세요.' }, { status: 400 })
   }
 
-  // 로그인 유저면 user_id도 저장
+  // ★ 보안: cookie-bound anon client 사용. 'contacts: self insert' RLS 정책이
+  //   WITH CHECK (TRUE) 라 비로그인도 INSERT 가능. service_role 키는 불필요.
+  //   이전 버전은 service_role 로 INSERT 했는데, 이는 RLS 우회만 부르고 보안 이점 0.
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // DB 스키마: title(제목), content(내용), user_id, type, phone, company
-  // name/email은 content 상단에도 한번 더 기록 (관리자 UI에서 빠르게 보기 위함)
   const title = subject?.trim() || (type === 'b2b' ? '기업 도입 문의' : '이용문의')
   const lines = [
     `[이름] ${name.trim()}`,
@@ -73,12 +66,7 @@ export async function POST(req: NextRequest) {
   ].filter(Boolean) as string[]
   const content = lines.join('\n')
 
-  const admin = makeAdminClient() as unknown as {
-    from: (t: string) => {
-      insert: (v: Record<string, unknown>) => Promise<{ error: { message: string } | null }>
-    }
-  }
-  const { error } = await admin
+  const { error } = await (supabase as any)
     .from('contacts')
     .insert({
       title,
@@ -95,9 +83,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '저장에 실패했습니다.' }, { status: 500 })
   }
 
-  // ─── 알림 메일 발송 (실패해도 응답엔 영향 없음) ───
+  // ─── 알림 메일 (실패해도 응답 영향 없음) ───
   try {
-    // 관리자 메일 주소: site_settings.contact_email → 없으면 EMAIL_FROM_ADDRESS
     const { data: rawSetting } = await supabase
       .from('site_settings')
       .select('value')
@@ -107,7 +94,7 @@ export async function POST(req: NextRequest) {
       || process.env.EMAIL_FROM_ADDRESS
       || null
 
-    // 1) 관리자에게 알림
+    // 1) 관리자 알림 — 고정 수신자 (settings.contact_email). 안전.
     if (adminEmail) {
       await sendEmail({
         to: adminEmail,
@@ -123,14 +110,19 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // 2) 문의자에게 접수 확인
-    await sendEmail({
-      to: email.trim(),
-      subject: '[Ingrow LMS] 문의가 정상 접수되었습니다',
-      react: ContactUserEmail({ name: name.trim(), subject: title }),
-      template: 'contact-user',
-      userId: user?.id ?? null,
-    })
+    // 2) ★ 보안: 사용자 ack 메일은 "로그인된 사용자의 user.email" 로만 발송.
+    //    이전 버전은 body.email 로 보내서 임의 수신자에게 ingrow 도메인 메일을
+    //    뿌릴 수 있는 오픈 릴레이였음 (Resend 도메인 평판 위험). 비로그인 문의는
+    //    UI 의 "접수 완료" 토스트로만 안내하고 메일 발송 안 함.
+    if (user?.email && user.email === email.trim()) {
+      await sendEmail({
+        to: user.email,
+        subject: '[Ingrow LMS] 문의가 정상 접수되었습니다',
+        react: ContactUserEmail({ name: name.trim(), subject: title }),
+        template: 'contact-user',
+        userId: user.id,
+      })
+    }
   } catch (e) {
     console.warn('[contact email] failed:', e)
   }
