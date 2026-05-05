@@ -30,6 +30,25 @@ export default async function AdminCmsPage() {
           메인 홈 페이지 섹션 구조·콘텐츠를 관리합니다. 배너는 banner 타입 섹션의 [설정] 버튼에서 관리할 수 있습니다.
         </p>
       </div>
+
+      {/* P2 페이지 빌더 진입 — content_blocks 기반 신버전. */}
+      <div className="mb-6 flex flex-wrap gap-3 rounded-lg border border-accent/20 bg-accent-pale p-4">
+        <div className="flex-1 min-w-[260px]">
+          <p className="text-body-sm font-semibold text-navy">새 페이지 빌더 (Beta)</p>
+          <p className="mt-1 text-caption text-gray-600">
+            block 단위로 페이지를 구성합니다. 회사별 랜딩·B2B 페이지·약관 페이지를 코드 변경 없이 만들 수 있습니다.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <a href="/admin/cms/builder/home" className="rounded-md border border-accent bg-white px-3 py-1.5 text-body-sm font-semibold text-accent hover:bg-accent hover:text-white">
+            홈 빌더
+          </a>
+          <a href="/admin/cms/builder/b2b" className="rounded-md border border-accent bg-white px-3 py-1.5 text-body-sm font-semibold text-accent hover:bg-accent hover:text-white">
+            B2B 빌더
+          </a>
+        </div>
+      </div>
+
       <CmsSectionManager initialSections={sections} />
     </div>
   )

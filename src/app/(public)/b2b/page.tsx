@@ -1,5 +1,6 @@
 import { Building2, CheckCircle, BarChart3, Users, Award, BookOpen } from 'lucide-react'
 import B2BContactForm from '@/components/public/B2BContactForm'
+import { SurfaceBlocks } from '@/components/blocks/SurfaceBlocks'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -17,7 +18,14 @@ const benefits = [
 export default function B2BPage() {
   return (
     <div className="flex flex-col">
-      {/* 히어로 */}
+      {/*
+        P2 페이지 빌더 — admin 이 /admin/cms/builder/b2b 에서 추가한 블록이
+        하드코딩 섹션 위에 노출됨. 블록 0개면 아무 것도 안 보이고 기존 디폴트 유지.
+        운영팀이 partner_logos / testimonials 등을 점진 추가하면서 하드코딩을 줄일 수 있음.
+      */}
+      <SurfaceBlocks surface="b2b" />
+
+      {/* 히어로 (하드코딩 fallback — P5 에서 페이지 빌더 100% 마이그레이션) */}
       <section className="bg-gradient-to-br from-navy to-navy-light py-20 text-white">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5 text-sm">
