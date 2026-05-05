@@ -59,29 +59,31 @@ export async function GET(
     courses: { id: string; title: string } | null
   }[] | null
 
-  // compute progress per enrollment
+  // 진도율 계산 — courses.id 직접 사용 + lesson_progress.is_completed
+  // (이전 버전: 'enrollment_id' / 'completed' — 컬럼 자체 없음. 항상 0% 반환되는 silent 버그였음)
   const enrollmentsWithProgress = await Promise.all(
     (enrollments ?? []).map(async (enroll) => {
       if (!enroll.courses) return { ...enroll, progress_percent: 0 }
 
-      const { data: rawLessons } = await supabase
+      const courseId = enroll.courses.id
+
+      const { count: totalLessons } = await supabase
         .from('lessons')
-        .select('id, sections!inner(course_id)')
-        .eq('sections.course_id', enroll.courses.id)
-      const lessons = rawLessons as unknown as { id: string }[] | null
-      const totalLessons = lessons?.length ?? 0
+        .select('*', { count: 'exact', head: true })
+        .eq('course_id', courseId)
 
-      if (totalLessons === 0) return { ...enroll, progress_percent: 0 }
+      if (!totalLessons || totalLessons === 0) {
+        return { ...enroll, progress_percent: 0 }
+      }
 
-      const { data: rawProgress } = await supabase
+      const { count: completedCount } = await supabase
         .from('lesson_progress')
-        .select('id')
+        .select('*', { count: 'exact', head: true })
         .eq('user_id', params.id)
-        .eq('enrollment_id', enroll.id)
-        .eq('completed', true)
-      const completedCount = (rawProgress as unknown as any[] | null)?.length ?? 0
+        .eq('course_id', courseId)
+        .eq('is_completed', true)
 
-      const progress_percent = Math.round((completedCount / totalLessons) * 100)
+      const progress_percent = Math.round(((completedCount ?? 0) / totalLessons) * 100)
       return { ...enroll, progress_percent }
     })
   )
@@ -101,7 +103,7 @@ export async function POST(
   const body = await req.json()
   const { role, isActive } = body as { role?: string; isActive?: boolean }
 
-  const validRoles = ['student', 'instructor', 'admin', 'superadmin']
+  const validRoles = ['student', 'instructor', 'org_admin', 'admin', 'superadmin']
   if (role && !validRoles.includes(role)) {
     return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
   }

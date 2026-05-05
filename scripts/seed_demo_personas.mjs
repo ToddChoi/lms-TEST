@@ -20,14 +20,7 @@
  * 이메일 패턴: *@demo.com (cleanup에서 식별용)
  */
 
-import { createClient } from '@supabase/supabase-js'
-
-const SUPABASE_URL = 'https://unrhoadjtyyuqvtdeyks.supabase.co'
-const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVucmhvYWRqdHl5dXF2dGRleWtzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjE0MjE0OSwiZXhwIjoyMDkxNzE4MTQ5fQ.JQET6tG2jeM8THB2_kdQse4QfcGeH9RmQgYQkv9QO-0'
-
-const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false },
-})
+import { sb } from './_env.mjs'
 
 const DEMO_PASSWORD = 'Demo1234!'
 
@@ -49,13 +42,13 @@ async function ensureAccounts() {
   const userMap = {}
 
   // 기존 사용자 한 번에 조회
-  const { data: existing } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 })
+  const { data: existing } = await sb.auth.admin.listUsers({ page: 1, perPage: 1000 })
   const byEmail = new Map((existing?.users ?? []).map((u) => [u.email, u]))
 
   for (const a of ACCOUNTS) {
     let user = byEmail.get(a.email)
     if (!user) {
-      const { data, error } = await supabase.auth.admin.createUser({
+      const { data, error } = await sb.auth.admin.createUser({
         email: a.email,
         password: DEMO_PASSWORD,
         email_confirm: true,
@@ -70,7 +63,7 @@ async function ensureAccounts() {
     userMap[a.key] = user.id
 
     // profiles upsert (트리거가 자동 생성했어도 role 보강)
-    await supabase.from('profiles').upsert({
+    await sb.from('profiles').upsert({
       id: user.id,
       email: a.email,
       name: a.name,
@@ -95,7 +88,7 @@ async function ensureCategories() {
   console.log('\n[2/8] 카테고리...')
   const idMap = {}
   for (const c of CATEGORIES) {
-    const { data: existing } = await supabase.from('categories').select('id').eq('slug', c.slug).maybeSingle()
+    const { data: existing } = await sb.from('categories').select('id').eq('slug', c.slug).maybeSingle()
     if (existing?.id) {
       idMap[c.slug] = existing.id
       console.log(`  · exists  ${c.slug}`)
@@ -173,13 +166,13 @@ async function ensureCourses(catIds, userIds) {
   const courses = makeCourses(catIds, userIds)
   const idMap = {}
   for (const c of courses) {
-    const { data: existing } = await supabase.from('courses').select('id').eq('slug', c.slug).maybeSingle()
+    const { data: existing } = await sb.from('courses').select('id').eq('slug', c.slug).maybeSingle()
     if (existing?.id) {
       idMap[c.slug] = existing.id
       console.log(`  · exists  ${c.slug}`)
       continue
     }
-    const { data, error } = await supabase.from('courses').insert({
+    const { data, error } = await sb.from('courses').insert({
       ...c,
       status: 'active',
       is_featured: true,
@@ -235,14 +228,14 @@ async function ensureSectionsAndLessons(courseIds) {
     // 2 섹션 × 3 강의 = 6 강의/강좌
     const lessons = []
     for (let s = 0; s < 2; s++) {
-      const { data: section } = await supabase.from('sections').insert({
+      const { data: section } = await sb.from('sections').insert({
         course_id: courseId,
         title: s === 0 ? '시작하기' : '실전 적용',
         sort_order: s,
       }).select('id').single()
       if (!section) continue
       for (let l = 0; l < 3; l++) {
-        const { data: lesson } = await supabase.from('lessons').insert({
+        const { data: lesson } = await sb.from('lessons').insert({
           course_id: courseId,
           section_id: section.id,
           title: `${s === 0 ? 'Lesson' : 'Practice'} ${l + 1}`,
@@ -272,7 +265,7 @@ async function ensureCompany(userIds) {
 
   let companyId = existing?.id
   if (!companyId) {
-    const { data, error } = await supabase.from('companies').insert({
+    const { data, error } = await sb.from('companies').insert({
       name: companyName,
     }).select('id').single()
     if (error) { console.error(`  ✗ company: ${error.message}`); return null }
@@ -289,7 +282,7 @@ async function ensureCompany(userIds) {
     { user_id: userIds.student2, is_manager: false },
   ]
   for (const m of members) {
-    await supabase.from('company_members').upsert({
+    await sb.from('company_members').upsert({
       company_id: companyId,
       ...m,
     }, { onConflict: 'company_id,user_id' })
@@ -327,7 +320,7 @@ async function ensureEnrollmentsAndProgress(userIds, courseIds, lessonMap) {
     if (!userId || !courseId || lessons.length === 0) continue
 
     // 수강 신청 upsert
-    await supabase.from('enrollments').upsert({
+    await sb.from('enrollments').upsert({
       user_id: userId,
       course_id: courseId,
       status: e.status,
@@ -342,7 +335,7 @@ async function ensureEnrollmentsAndProgress(userIds, courseIds, lessonMap) {
       // 다양한 last_watched_at — streak/캘린더 시연용 (최근 30일 내 무작위)
       const daysAgo = Math.floor(Math.random() * 30)
       const lastWatched = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000).toISOString()
-      await supabase.from('lesson_progress').upsert({
+      await sb.from('lesson_progress').upsert({
         user_id: userId,
         lesson_id: lessons[i],
         course_id: courseId,
@@ -374,7 +367,7 @@ async function ensureReviews(userIds, courseIds) {
     const userId = userIds[r.user]
     const courseId = courseIds[r.course]
     if (!userId || !courseId) continue
-    await supabase.from('course_reviews').upsert({
+    await sb.from('course_reviews').upsert({
       user_id: userId,
       course_id: courseId,
       rating: r.rating,
@@ -405,7 +398,7 @@ async function ensureReviews(userIds, courseIds) {
       .eq('course_id', courseId).eq('user_id', userId).eq('title', q.title).maybeSingle()
     let questionId = existingQ?.id
     if (!questionId) {
-      const { data } = await supabase.from('course_questions').insert({
+      const { data } = await sb.from('course_questions').insert({
         user_id: userId, course_id: courseId, title: q.title, content: q.content,
       }).select('id').single()
       questionId = data?.id
@@ -417,7 +410,7 @@ async function ensureReviews(userIds, courseIds) {
         .from('course_answers').select('id')
         .eq('question_id', questionId).eq('user_id', aUserId).maybeSingle()
       if (!existingA) {
-        await supabase.from('course_answers').insert({
+        await sb.from('course_answers').insert({
           question_id: questionId,
           user_id: aUserId,
           content: q.answer.content,
@@ -442,14 +435,14 @@ async function ensureCertificates(userIds, courseIds) {
     const courseId = courseIds[e.course]
     if (!userId || !courseId) continue
 
-    const { data: existing } = await supabase.from('certificates')
+    const { data: existing } = await sb.from('certificates')
       .select('id').eq('user_id', userId).eq('course_id', courseId).maybeSingle()
     if (existing) continue
 
     const today = new Date()
     const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '')
     const rand = Math.random().toString(36).substring(2, 8).toUpperCase()
-    await supabase.from('certificates').insert({
+    await sb.from('certificates').insert({
       user_id: userId,
       course_id: courseId,
       cert_number: `CERT-${dateStr}-${rand}`,

@@ -33,7 +33,8 @@ export function Header({ profile, navLinks }: HeaderProps) {
 
   const handleLogout = async () => {
     const supabase = createClient()
-    await supabase.auth.signOut()
+    // scope: 'global' — 다른 디바이스/탭의 세션도 함께 무효화 (보안 강화)
+    await supabase.auth.signOut({ scope: 'global' })
     router.push('/')
     router.refresh()
   }

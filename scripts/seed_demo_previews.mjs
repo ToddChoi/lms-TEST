@@ -3,7 +3,7 @@
  * - 카드 호버 자동재생용 (mp4) + 강좌 상세 미리보기 모달용 (YouTube 가능)
  */
 
-import { createClient } from '@supabase/supabase-js'
+import { sb } from './_env.mjs'
 
 const sb = createClient(
   'https://unrhoadjtyyuqvtdeyks.supabase.co',

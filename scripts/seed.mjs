@@ -1,18 +1,11 @@
-import { createClient } from '@supabase/supabase-js'
-
-const SUPABASE_URL = 'https://unrhoadjtyyuqvtdeyks.supabase.co'
-const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVucmhvYWRqdHl5dXF2dGRleWtzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjE0MjE0OSwiZXhwIjoyMDkxNzE4MTQ5fQ.JQET6tG2jeM8THB2_kdQse4QfcGeH9RmQgYQkv9QO-0'
-
-const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false }
-})
+import { sb } from './_env.mjs'
 
 // ─── 1. 카테고리 조회 (없으면 삽입) ───────────────────────────
-let { data: categories } = await supabase.from('categories').select('id, slug')
+let { data: categories } = await sb.from('categories').select('id, slug')
 
 if (!categories || categories.length === 0) {
   console.log('카테고리가 없습니다. 초기 데이터 삽입 중...')
-  const { data: inserted } = await supabase.from('categories').insert([
+  const { data: inserted } = await sb.from('categories').insert([
     { name: 'AI 직무/업무 생산성', slug: 'ai', sort_order: 1 },
     { name: '실무 역량', slug: 'business', sort_order: 2 },
     { name: '메타버스', slug: 'metaverse', sort_order: 3 },
@@ -270,7 +263,7 @@ for (const course of insertedCourses) {
       video_url: l.video_url,
     }))
 
-    const { error: lessonErr } = await supabase.from('lessons').insert(lessons)
+    const { error: lessonErr } = await sb.from('lessons').insert(lessons)
     if (lessonErr) console.error('레슨 오류:', lessonErr)
   }
 

@@ -1,14 +1,7 @@
 /**
  * 시드 강좌 INSERT 가 silent fail 한 정확한 원인 파악
  */
-import { createClient } from '@supabase/supabase-js'
-
-const SUPABASE_URL = 'https://unrhoadjtyyuqvtdeyks.supabase.co'
-const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVucmhvYWRqdHl5dXF2dGRleWtzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjE0MjE0OSwiZXhwIjoyMDkxNzE4MTQ5fQ.JQET6tG2jeM8THB2_kdQse4QfcGeH9RmQgYQkv9QO-0'
-
-const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false },
-})
+import { sb } from './_env.mjs'
 
 // 1) 강사1 + 카테고리 'data' id 가져오기
 const { data: ins } = await sb.from('profiles').select('id').eq('email', 'instructor1@demo.com').single()

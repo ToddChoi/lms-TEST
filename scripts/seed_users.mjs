@@ -1,11 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
-
-const SUPABASE_URL = 'https://unrhoadjtyyuqvtdeyks.supabase.co'
-const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVucmhvYWRqdHl5dXF2dGRleWtzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjE0MjE0OSwiZXhwIjoyMDkxNzE4MTQ5fQ.JQET6tG2jeM8THB2_kdQse4QfcGeH9RmQgYQkv9QO-0'
-
-const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false }
-})
+import { sb } from './_env.mjs'
 
 const users = [
   { email: 'kim.jisoo@test.com',   name: '김지수', company: '삼성전자',   department: '개발팀' },
@@ -17,7 +10,7 @@ const users = [
 
 for (const u of users) {
   // 1. auth 계정 생성 (이메일 인증 없이 바로 확인 처리)
-  const { data, error } = await supabase.auth.admin.createUser({
+  const { data, error } = await sb.auth.admin.createUser({
     email: u.email,
     password: 'Test1234!',
     email_confirm: true,

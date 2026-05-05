@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { sb } from './_env.mjs'
 
 const sb = createClient(
   'https://unrhoadjtyyuqvtdeyks.supabase.co',

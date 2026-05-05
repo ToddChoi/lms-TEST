@@ -3,7 +3,7 @@
  *  - profiles.role CHECK 확장
  *  - manager@demo.com role 'org_admin' 으로 변경
  */
-import { createClient } from '@supabase/supabase-js'
+import { sb } from './_env.mjs'
 
 const sb = createClient(
   'https://unrhoadjtyyuqvtdeyks.supabase.co',

@@ -1,11 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
-
-const SUPABASE_URL = 'https://unrhoadjtyyuqvtdeyks.supabase.co'
-const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVucmhvYWRqdHl5dXF2dGRleWtzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjE0MjE0OSwiZXhwIjoyMDkxNzE4MTQ5fQ.JQET6tG2jeM8THB2_kdQse4QfcGeH9RmQgYQkv9QO-0'
-
-const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false }
-})
+import { sb } from './_env.mjs'
 
 // ── 1. 김지수 프로필 조회
 const { data: profile } = await supabase
@@ -43,7 +36,7 @@ console.log(`✓ 레슨 ${lessons.length}개 확인`)
 
 // ── 5. 모든 레슨 진도 100% 처리
 for (const lesson of lessons) {
-  const { error } = await supabase.from('lesson_progress').upsert({
+  const { error } = await sb.from('lesson_progress').upsert({
     user_id: profile.id,
     lesson_id: lesson.id,
     course_id: course.id,
@@ -56,7 +49,7 @@ for (const lesson of lessons) {
 }
 
 // ── 6. 수강 상태 completed로 업데이트
-await supabase.from('enrollments').update({ status: 'completed' }).eq('id', enrollmentId)
+await sb.from('enrollments').update({ status: 'completed' }).eq('id', enrollmentId)
 console.log('✓ 수강 상태 → completed')
 
 // ── 7. 수료증 발급

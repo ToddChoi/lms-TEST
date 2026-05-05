@@ -13,14 +13,7 @@
  * ⚠️ 운영 데이터에는 영향 없음 — 위 패턴에 매치되는 것만 삭제.
  */
 
-import { createClient } from '@supabase/supabase-js'
-
-const SUPABASE_URL = 'https://unrhoadjtyyuqvtdeyks.supabase.co'
-const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVucmhvYWRqdHl5dXF2dGRleWtzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjE0MjE0OSwiZXhwIjoyMDkxNzE4MTQ5fQ.JQET6tG2jeM8THB2_kdQse4QfcGeH9RmQgYQkv9QO-0'
-
-const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false },
-})
+import { sb } from './_env.mjs'
 
 async function main() {
   console.log('═══════════════════════════════════════════')
@@ -34,7 +27,7 @@ async function main() {
   console.log(`강좌 ${courseIds.length}개 발견`)
 
   if (courseIds.length > 0) {
-    const { error } = await supabase.from('courses').delete().in('id', courseIds)
+    const { error } = await sb.from('courses').delete().in('id', courseIds)
     if (error) console.error('  ✗ courses:', error.message)
     else console.log(`  ✓ 강좌 + 관련 데이터 (CASCADE) 삭제`)
   }
@@ -46,13 +39,13 @@ async function main() {
   else console.log(`  ✓ 데모 주식회사 + 멤버 삭제`)
 
   // 3) 데모 계정 삭제 (auth.users + CASCADE)
-  const { data: existing } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 })
+  const { data: existing } = await sb.auth.admin.listUsers({ page: 1, perPage: 1000 })
   const demoUsers = (existing?.users ?? []).filter((u) => u.email?.endsWith('@demo.com'))
   console.log(`계정 ${demoUsers.length}개 발견`)
 
   let deleted = 0
   for (const u of demoUsers) {
-    const { error } = await supabase.auth.admin.deleteUser(u.id)
+    const { error } = await sb.auth.admin.deleteUser(u.id)
     if (error) console.error(`  ✗ ${u.email}: ${error.message}`)
     else deleted++
   }

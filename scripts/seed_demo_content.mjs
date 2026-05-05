@@ -9,7 +9,7 @@
  * seed_demo_personas.mjs 가 먼저 실행되어 강좌가 있어야 함.
  */
 
-import { createClient } from '@supabase/supabase-js'
+import { sb } from './_env.mjs'
 
 const sb = createClient(
   'https://unrhoadjtyyuqvtdeyks.supabase.co',

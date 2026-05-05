@@ -24,7 +24,7 @@ export default async function EditCoursePage({ params }: Props) {
     { data: rawSections },
   ] = await Promise.all([
     supabase.from('courses').select('*').eq('id', params.id).single(),
-    supabase.from('categories').select('*').eq('is_active', true).order('sort_order'),
+    supabase.from('categories').select('*').eq('is_visible', true).order('sort_order'),
     supabase
       .from('sections')
       .select('id, title, sort_order, lessons(id, title, video_url, duration, is_preview, sort_order)')
