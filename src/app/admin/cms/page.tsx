@@ -31,20 +31,33 @@ export default async function AdminCmsPage() {
         </p>
       </div>
 
-      {/* P2 페이지 빌더 진입 — content_blocks 기반 신버전. */}
-      <div className="mb-6 flex flex-wrap gap-3 rounded-lg border border-accent/20 bg-accent-pale p-4">
-        <div className="flex-1 min-w-[260px]">
-          <p className="text-body-sm font-semibold text-navy">새 페이지 빌더 (Beta)</p>
-          <p className="mt-1 text-caption text-gray-600">
-            block 단위로 페이지를 구성합니다. 회사별 랜딩·B2B 페이지·약관 페이지를 코드 변경 없이 만들 수 있습니다.
-          </p>
+      {/*
+        P2 페이지 빌더 진입 — content_blocks 기반 신버전.
+        디자인 토큰(text-body-sm / text-caption / border-accent/20) 미컴파일 시
+        묻혀 보일 수 있어 Tailwind 기본 클래스(text-sm / text-xs)로 작성.
+      */}
+      <div className="mb-6 rounded-xl border-2 border-blue-500 bg-blue-50 p-5 shadow-sm">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center rounded-full bg-blue-500 px-2.5 py-0.5 text-xs font-bold text-white">
+            BETA
+          </span>
+          <p className="text-base font-bold text-navy">새 페이지 빌더 — content_blocks 기반</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <a href="/admin/cms/builder/home" className="rounded-md border border-accent bg-white px-3 py-1.5 text-body-sm font-semibold text-accent hover:bg-accent hover:text-white">
-            홈 빌더
+        <p className="mt-2 text-sm text-gray-700">
+          block 단위로 페이지를 구성합니다. 회사별 랜딩·B2B 페이지·약관 페이지를 코드 변경 없이 만들 수 있습니다.
+        </p>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <a
+            href="/admin/cms/builder/home"
+            className="rounded-md border-2 border-blue-600 bg-white px-4 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-600 hover:text-white"
+          >
+            홈 페이지 빌더 →
           </a>
-          <a href="/admin/cms/builder/b2b" className="rounded-md border border-accent bg-white px-3 py-1.5 text-body-sm font-semibold text-accent hover:bg-accent hover:text-white">
-            B2B 빌더
+          <a
+            href="/admin/cms/builder/b2b"
+            className="rounded-md border-2 border-blue-600 bg-white px-4 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-600 hover:text-white"
+          >
+            B2B 랜딩 빌더 →
           </a>
         </div>
       </div>
