@@ -52,14 +52,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `업로드 URL 발급 실패: ${error?.message}` }, { status: 500 })
   }
 
-  // ── 5. Public URL도 함께 반환 ────────────────────────────────
-  const { data: urlData } = (admin as any).storage
-    .from('course-videos')
-    .getPublicUrl(path)
-
+  // ★ 보안: course-videos 는 private 버킷. publicUrl 은 더 이상 발급하지 않음.
+  // frontend 는 `path` 를 video_url 로 저장하고, 재생 시점에 서버가
+  // signed URL 로 변환해 노출함 (src/lib/storage/video.ts 참고).
   return NextResponse.json({
     signedUrl: data.signedUrl,
-    publicUrl: urlData.publicUrl,
     path,
   })
 }

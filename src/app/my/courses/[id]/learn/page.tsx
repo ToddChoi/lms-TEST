@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { LearnContent } from '@/components/learn/LearnContent'
 import { ArrowLeft, BookOpen } from 'lucide-react'
 import { formatDuration } from '@/lib/utils'
+import { signVideoUrl } from '@/lib/storage/video'
 import type { Metadata } from 'next'
 
 interface Props {
@@ -110,6 +111,21 @@ export default async function LearnPage({ params, searchParams }: Props) {
   const currentProgress = progressMap.get(currentLesson.id) ?? null
   const isEnrolled = !!enrollment && enrollment.status === 'active'
 
+  // ★ 보안: course-videos 가 private 버킷이라 video_url 을 직접 노출하면 재생 안 됨.
+  // 권한 검증 후 짧은 TTL 의 signed URL 로 변환해 client 에 전달.
+  // 권한: 본인이 수강 중 OR 미리보기 강의 OR 관리자/강사. 그 외에는 null.
+  const { data: rawSelfProfile } = user
+    ? await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+    : { data: null }
+  const selfRole = (rawSelfProfile as unknown as { role: string } | null)?.role ?? null
+  const canPlayLockedLesson =
+    isEnrolled || (selfRole && ['admin', 'superadmin', 'instructor'].includes(selfRole))
+  const signedVideoUrl =
+    currentLesson.is_preview || canPlayLockedLesson
+      ? await signVideoUrl(currentLesson.video_url)
+      : null
+  const currentLessonForClient = { ...currentLesson, video_url: signedVideoUrl }
+
   return (
     <div className="flex min-h-screen flex-col bg-silver">
       {/* 비로그인/비수강자 미리보기 배너 */}
@@ -148,7 +164,7 @@ export default async function LearnPage({ params, searchParams }: Props) {
       <LearnContent
         key={currentLesson.id}
         courseId={params.id}
-        currentLesson={currentLesson}
+        currentLesson={currentLessonForClient}
         sections={sectionsWithProgress}
         currentProgress={currentProgress}
         isEnrolled={isEnrolled}

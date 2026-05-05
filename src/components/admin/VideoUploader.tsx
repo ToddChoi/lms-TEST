@@ -12,8 +12,14 @@ interface Props {
   onDurationDetected?: (seconds: number) => void   // 영상 길이 자동 감지 콜백 (초 단위)
 }
 
-function isStorageUrl(url: string) {
-  return url.includes('supabase') && url.includes('course-videos')
+// course-videos 가 private 으로 바뀐 후 video_url 은
+//   - 새 업로드: bucket-relative path ("courseId/timestamp_name.mp4")
+//   - 레거시   : 풀 public URL (...storage/v1/object/public/course-videos/...)
+// 둘 다 "스토리지 영상" 으로 인식해야 함.
+function isStoragePath(value: string) {
+  if (!value) return false
+  if (value.includes('course-videos')) return true                        // 레거시 URL
+  return !/^https?:\/\//.test(value) && /^[^/]+\/\d+_/.test(value)        // path 패턴
 }
 
 function getYoutubeId(url: string): string | null {
@@ -21,12 +27,11 @@ function getYoutubeId(url: string): string | null {
   return m ? m[1] : null
 }
 
-function getFileNameFromUrl(url: string): string {
+function getFileNameFromValue(value: string): string {
   try {
-    const parts = new URL(url).pathname.split('/')
-    const raw = parts[parts.length - 1]
-    // Remove timestamp prefix: 1234567890_filename.mp4 → filename.mp4
-    return raw.replace(/^\d+_/, '')
+    // path 형식: "courseId/1234_filename.mp4"
+    const tail = value.split('/').pop() ?? value
+    return tail.replace(/^\d+_/, '')
   } catch {
     return '업로드된 영상'
   }
@@ -37,7 +42,7 @@ const ACCEPTED_EXT = ['mp4', 'webm', 'mov', 'avi', 'mkv', 'm4v']
 const MAX_MB = 50
 
 export function VideoUploader({ courseId, value, onChange, onDurationDetected }: Props) {
-  const initMode: Mode = value && isStorageUrl(value) ? 'file' : 'url'
+  const initMode: Mode = value && isStoragePath(value) ? 'file' : 'url'
   const [mode, setMode] = useState<Mode>(initMode)
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -98,7 +103,7 @@ export function VideoUploader({ courseId, value, onChange, onDurationDetected }:
       return
     }
 
-    const { signedUrl, publicUrl } = await urlRes.json()
+    const { signedUrl, path } = await urlRes.json() as { signedUrl: string; path: string }
 
     // ── 2. XHR로 진행률 추적하며 Supabase Storage에 직접 업로드 ──
     const uploadErr = await new Promise<string | null>((resolve) => {
@@ -122,8 +127,9 @@ export function VideoUploader({ courseId, value, onChange, onDurationDetected }:
       return
     }
 
-    // ── 3. 완료 ───────────────────────────────────────────────────
-    onChange(publicUrl)
+    // ── 3. 완료 — bucket-relative path 를 video_url 로 저장.
+    //   재생 시점에 서버가 signed URL 로 변환해 노출함.
+    onChange(path)
     setProgress(100)
     setUploading(false)
   }, [courseId, onChange])
@@ -136,7 +142,7 @@ export function VideoUploader({ courseId, value, onChange, onDurationDetected }:
   }, [upload])
 
   const ytId = mode === 'url' ? getYoutubeId(value) : null
-  const isUploaded = value && isStorageUrl(value)
+  const isUploaded = value && isStoragePath(value)
 
   return (
     <div className="space-y-3">
@@ -215,17 +221,10 @@ export function VideoUploader({ courseId, value, onChange, onDurationDetected }:
               <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-green-800 truncate">
-                  {getFileNameFromUrl(value)}
+                  {getFileNameFromValue(value)}
                 </p>
                 <p className="text-xs text-green-600 mt-0.5">
-                  업로드 완료 ·{' '}
-                  <button
-                    type="button"
-                    className="underline hover:text-green-800"
-                    onClick={() => window.open(value, '_blank')}
-                  >
-                    미리보기
-                  </button>
+                  업로드 완료 — 학습 페이지에서 재생 확인 가능
                 </p>
               </div>
               <button
