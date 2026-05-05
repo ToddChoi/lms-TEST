@@ -39,6 +39,7 @@ interface Block {
   surface: string
   block_type: string
   config: Record<string, unknown>
+  audience?: Record<string, unknown>
   sort_order: number
   status: 'draft' | 'published'
 }
@@ -118,11 +119,15 @@ export function PageBuilder({ surface, surfaceLabel }: Props) {
     router.refresh()
   }
 
-  const handleSaveConfig = async (id: string, config: Record<string, unknown>) => {
+  const handleSaveBlock = async (
+    id: string,
+    config: Record<string, unknown>,
+    audience: Record<string, unknown>,
+  ) => {
     await fetch('/api/admin/content-blocks', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, config }),
+      body: JSON.stringify({ id, config, audience }),
     })
     setEditingId(null)
     reload(); router.refresh()
@@ -209,7 +214,7 @@ export function PageBuilder({ surface, surfaceLabel }: Props) {
                   block={b}
                   type={type}
                   onCancel={() => setEditingId(null)}
-                  onSave={(cfg) => handleSaveConfig(b.id, cfg)}
+                  onSave={(cfg, aud) => handleSaveBlock(b.id, cfg, aud)}
                 />
               )}
             </li>
@@ -260,13 +265,14 @@ function DynamicConfigForm({
   block: Block
   type: BlockType
   onCancel: () => void
-  onSave: (cfg: Record<string, unknown>) => void
+  onSave: (cfg: Record<string, unknown>, audience: Record<string, unknown>) => void
 }) {
   const [values, setValues] = useState<Record<string, unknown>>(block.config ?? {})
+  const [audience, setAudience] = useState<AudienceState>(() => fromAudienceJson(block.audience))
 
   return (
     <form
-      onSubmit={(e) => { e.preventDefault(); onSave(values) }}
+      onSubmit={(e) => { e.preventDefault(); onSave(values, toAudienceJson(audience)) }}
       className="space-y-3 border-t border-border-subtle bg-surface-subtle p-4"
     >
       {type.fields.map((f) => (
@@ -279,6 +285,10 @@ function DynamicConfigForm({
           />
         </div>
       ))}
+
+      {/* audience 편집 — 누구에게 보일지 (P4) */}
+      <AudienceEditor value={audience} onChange={setAudience} />
+
       <div className="flex justify-end gap-2 pt-2">
         <button type="button" onClick={onCancel} className="rounded-md px-3 py-1.5 text-body-sm text-gray-500 hover:bg-surface-muted">
           취소
@@ -288,6 +298,122 @@ function DynamicConfigForm({
         </button>
       </div>
     </form>
+  )
+}
+
+// ─── audience 편집 — 단순 select 모음 ─────────────
+type LoggedInOpt = 'any' | 'logged' | 'guest'
+type CompanyMemberOpt = 'any' | 'member' | 'non_member' | 'manager'
+
+interface AudienceState {
+  loggedIn: LoggedInOpt
+  companyMember: CompanyMemberOpt
+  rolesCsv: string                   // 'admin,instructor' 형태 — UI 단순화
+  jobLevelsCsv: string
+}
+
+function fromAudienceJson(a: Record<string, unknown> | null | undefined): AudienceState {
+  const obj = (a ?? {}) as {
+    logged_in?: boolean
+    is_company_member?: boolean
+    is_company_manager?: boolean
+    roles?: string[]
+    job_levels?: string[]
+  }
+  let loggedIn: LoggedInOpt = 'any'
+  if (obj.logged_in === true) loggedIn = 'logged'
+  if (obj.logged_in === false) loggedIn = 'guest'
+
+  let companyMember: CompanyMemberOpt = 'any'
+  if (obj.is_company_manager) companyMember = 'manager'
+  else if (obj.is_company_member === true) companyMember = 'member'
+  else if (obj.is_company_member === false) companyMember = 'non_member'
+
+  return {
+    loggedIn,
+    companyMember,
+    rolesCsv: (obj.roles ?? []).join(','),
+    jobLevelsCsv: (obj.job_levels ?? []).join(','),
+  }
+}
+
+function toAudienceJson(s: AudienceState): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  if (s.loggedIn === 'logged') out.logged_in = true
+  if (s.loggedIn === 'guest')  out.logged_in = false
+  if (s.companyMember === 'member')     out.is_company_member = true
+  if (s.companyMember === 'non_member') out.is_company_member = false
+  if (s.companyMember === 'manager')    out.is_company_manager = true
+  const roles = s.rolesCsv.split(',').map((x) => x.trim()).filter(Boolean)
+  if (roles.length) out.roles = roles
+  const levels = s.jobLevelsCsv.split(',').map((x) => x.trim()).filter(Boolean)
+  if (levels.length) out.job_levels = levels
+  return out
+}
+
+function AudienceEditor({
+  value, onChange,
+}: {
+  value: AudienceState
+  onChange: (s: AudienceState) => void
+}) {
+  const set = <K extends keyof AudienceState>(k: K, v: AudienceState[K]) =>
+    onChange({ ...value, [k]: v })
+
+  return (
+    <div className="rounded-md border border-border-subtle bg-surface p-3">
+      <div className="flex items-center gap-2">
+        <span className="text-caption font-semibold text-navy">노출 조건 (audience)</span>
+        <span className="text-micro text-gray-500">— 모두 비워두면 전체 공개</span>
+      </div>
+      <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <label className="block text-micro text-gray-500">로그인 여부</label>
+          <select
+            value={value.loggedIn}
+            onChange={(e) => set('loggedIn', e.target.value as LoggedInOpt)}
+            className="mt-0.5 w-full rounded-md border border-border-subtle bg-surface px-2 py-1.5 text-body-sm focus:border-accent focus:outline-none"
+          >
+            <option value="any">상관없음</option>
+            <option value="logged">로그인 회원만</option>
+            <option value="guest">비로그인만</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-micro text-gray-500">회사 멤버십</label>
+          <select
+            value={value.companyMember}
+            onChange={(e) => set('companyMember', e.target.value as CompanyMemberOpt)}
+            className="mt-0.5 w-full rounded-md border border-border-subtle bg-surface px-2 py-1.5 text-body-sm focus:border-accent focus:outline-none"
+          >
+            <option value="any">상관없음</option>
+            <option value="member">회사 멤버 (어디든)</option>
+            <option value="non_member">비회사 사용자</option>
+            <option value="manager">회사 매니저</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-micro text-gray-500">role (콤마 구분)</label>
+          <input
+            type="text"
+            value={value.rolesCsv}
+            onChange={(e) => set('rolesCsv', e.target.value)}
+            placeholder="예: admin,instructor"
+            className="mt-0.5 w-full rounded-md border border-border-subtle bg-surface px-2 py-1.5 text-body-sm focus:border-accent focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="block text-micro text-gray-500">직급 (콤마 구분)</label>
+          <input
+            type="text"
+            value={value.jobLevelsCsv}
+            onChange={(e) => set('jobLevelsCsv', e.target.value)}
+            placeholder="예: staff,manager,director"
+            className="mt-0.5 w-full rounded-md border border-border-subtle bg-surface px-2 py-1.5 text-body-sm focus:border-accent focus:outline-none"
+          />
+        </div>
+      </div>
+    </div>
   )
 }
 

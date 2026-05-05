@@ -15,6 +15,7 @@
  */
 import { createClient } from '@/lib/supabase/server'
 import { getTenant } from '@/lib/tenant'
+import { buildAudienceContext, matchesAudience, type Audience } from '@/lib/audience'
 import { REGISTRY, isKnownBlockType } from './registry'
 
 interface Props {
@@ -65,6 +66,12 @@ export async function SurfaceBlocks({ surface, companyId }: Props) {
       .order('sort_order')
     blocks = (rawGlobal as unknown as BlockRow[] | null) ?? []
   }
+  if (blocks.length === 0) return null
+
+  // ── audience 필터링 — 사용자/회사 컨텍스트로 노출 결정 ──────
+  // 컨텍스트는 1회만 fetch (블록마다 다시 안 함).
+  const audienceCtx = await buildAudienceContext()
+  blocks = blocks.filter((b) => matchesAudience(b.audience as Audience | null, audienceCtx))
   if (blocks.length === 0) return null
 
   // ── 의존 데이터 prefetch ─────────────────────────
