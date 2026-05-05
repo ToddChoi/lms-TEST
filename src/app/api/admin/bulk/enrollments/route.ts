@@ -37,30 +37,31 @@ export async function POST(req: NextRequest) {
     existingUserIds = new Set((existing ?? []).map((e) => e.user_id))
   }
 
-  let success = 0
-  let skipped = 0
   let notFound = 0
-
+  const targets: { user_id: string; course_id: string; status: string }[] = []
   for (const email of emails) {
     const uid = emailToId.get(email)
-    if (!uid) {
-      notFound++
-      continue
-    }
-    if (existingUserIds.has(uid)) {
-      skipped++
-      continue
-    }
-    const { error } = await (supabase as any)
-      .from('enrollments')
-      .insert({ user_id: uid, course_id, status: 'active' })
-    if (error) {
-      skipped++
-    } else {
-      success++
-      existingUserIds.add(uid)
-    }
+    if (!uid) { notFound++; continue }
+    targets.push({ user_id: uid, course_id, status: 'active' })
   }
 
-  return NextResponse.json({ success, skipped, notFound })
+  // race-safe batch upsert — 한 건의 race 가 batch 전체를 깨지 않음.
+  // 이전 버전은 per-row insert 루프 + 일부만 성공한 부분 상태가 가능했음.
+  let upsertError: string | null = null
+  if (targets.length > 0) {
+    const { error } = await (supabase as any)
+      .from('enrollments')
+      .upsert(targets, { onConflict: 'user_id,course_id', ignoreDuplicates: true })
+    if (error) upsertError = error.message
+  }
+
+  const success = targets.filter((t) => !existingUserIds.has(t.user_id)).length
+  const skipped = targets.length - success
+
+  return NextResponse.json({
+    success: upsertError ? 0 : success,
+    skipped,
+    notFound,
+    error: upsertError,
+  })
 }

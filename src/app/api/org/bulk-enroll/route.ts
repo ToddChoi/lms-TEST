@@ -27,7 +27,15 @@ export async function POST(req: NextRequest) {
   if (!Array.isArray(courseIds) || courseIds.length === 0)
     return NextResponse.json({ error: '강좌를 선택해주세요.' }, { status: 400 })
 
-  // 호출자가 매니저인 회사 확인
+  // ★ C3/C4: role + is_manager 둘 다 검사. role 만 검사하면 demote 후 is_manager
+  // 잔류로 우회 가능, is_manager 만 검사하면 student 가 잘못 인서트되면 통과 가능.
+  const { data: rawMyProfile } = await supabase
+    .from('profiles').select('role').eq('id', user.id).single()
+  const myRole = (rawMyProfile as { role: string } | null)?.role
+  if (!myRole || !['org_admin', 'admin', 'superadmin'].includes(myRole)) {
+    return NextResponse.json({ error: '회사 매니저 권한이 없습니다.' }, { status: 403 })
+  }
+
   const { data: rawMyMember } = await supabase
     .from('company_members')
     .select('company_id')
@@ -71,7 +79,7 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // 기존 enrollments 조회 (중복 방지)
+  // 기존 enrollments 조회 — created/skipped 카운팅 용 (race-safe 검증은 upsert 가 함)
   const validCourseIds = validCourses.map((c) => c.id)
   const { data: rawExisting } = await supabase
     .from('enrollments')
@@ -83,33 +91,27 @@ export async function POST(req: NextRequest) {
       .map((e) => `${e.user_id}:${e.course_id}`)
   )
 
-  // INSERT 데이터 구성
-  const toInsert: { user_id: string; course_id: string; status: string }[] = []
+  // 전체 조합 upsert — UNIQUE(user_id,course_id) 충돌 시 무시.
+  // 이전 버전은 plain insert 라 한 건이라도 race 로 충돌하면 batch 전체 실패.
+  const allRows: { user_id: string; course_id: string; status: string }[] = []
   for (const uid of validMemberIds) {
     for (const cid of validCourseIds) {
-      if (!existingPairs.has(`${uid}:${cid}`)) {
-        toInsert.push({ user_id: uid, course_id: cid, status: 'active' })
-      }
+      allRows.push({ user_id: uid, course_id: cid, status: 'active' })
     }
   }
 
-  if (toInsert.length === 0) {
-    return NextResponse.json({
-      ok: true, created: 0,
-      skipped: validMemberIds.length * validCourseIds.length,
-      message: '모든 항목이 이미 등록되어 있습니다.',
-    })
-  }
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: insertErr } = await (supabase as any).from('enrollments').insert(toInsert)
-  if (insertErr) {
-    return NextResponse.json({ error: insertErr.message }, { status: 500 })
+  const { error: upsertErr } = await (supabase as any)
+    .from('enrollments')
+    .upsert(allRows, { onConflict: 'user_id,course_id', ignoreDuplicates: true })
+  if (upsertErr) {
+    return NextResponse.json({ error: upsertErr.message }, { status: 500 })
   }
 
+  const newPairs = allRows.filter((r) => !existingPairs.has(`${r.user_id}:${r.course_id}`)).length
   return NextResponse.json({
     ok: true,
-    created: toInsert.length,
-    skipped: validMemberIds.length * validCourseIds.length - toInsert.length,
+    created: newPairs,
+    skipped: allRows.length - newPairs,
   })
 }

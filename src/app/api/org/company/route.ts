@@ -21,6 +21,14 @@ export async function PUT(req: NextRequest) {
   if (name.length > 100)
     return NextResponse.json({ error: '회사명은 100자 이내여야 합니다.' }, { status: 400 })
 
+  // ★ C3/C4: role + is_manager 이중 게이트
+  const { data: rawMyProfile } = await supabase
+    .from('profiles').select('role').eq('id', user.id).single()
+  const myRole = (rawMyProfile as { role: string } | null)?.role
+  if (!myRole || !['org_admin', 'admin', 'superadmin'].includes(myRole)) {
+    return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 })
+  }
+
   // 매니저 권한 확인
   const { data: rawMembership } = await supabase
     .from('company_members')

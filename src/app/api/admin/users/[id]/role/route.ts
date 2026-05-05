@@ -18,13 +18,14 @@ function makeSupabase() {
   )
 }
 
+// 호출자의 role 까지 함께 반환 — superadmin 권한 분리 (H2) 에 사용.
 async function checkAdmin(supabase: ReturnType<typeof makeSupabase>) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
   const { data: rawProfile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   const profile = rawProfile as unknown as { role: string } | null
   if (!profile || !['admin', 'superadmin'].includes(profile.role)) return null
-  return user
+  return { user, role: profile.role as 'admin' | 'superadmin' }
 }
 
 // GET: return profile + enrollments with progress
@@ -33,8 +34,8 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   const supabase = makeSupabase()
-  const adminUser = await checkAdmin(supabase)
-  if (!adminUser) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const adminInfo = await checkAdmin(supabase)
+  if (!adminInfo) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { data: rawProfile } = await supabase
     .from('profiles')
@@ -97,8 +98,8 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   const supabase = makeSupabase()
-  const adminUser = await checkAdmin(supabase)
-  if (!adminUser) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const adminInfo = await checkAdmin(supabase)
+  if (!adminInfo) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const body = await req.json()
   const { role, isActive } = body as { role?: string; isActive?: boolean }
@@ -106,6 +107,25 @@ export async function POST(
   const validRoles = ['student', 'instructor', 'org_admin', 'admin', 'superadmin']
   if (role && !validRoles.includes(role)) {
     return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
+  }
+
+  // ★ H2: superadmin 임명/해임은 superadmin 만. admin 의 자기·동료 승격 차단.
+  if (role === 'superadmin' && adminInfo.role !== 'superadmin') {
+    return NextResponse.json(
+      { error: 'superadmin 권한 부여는 superadmin 만 할 수 있습니다.' },
+      { status: 403 }
+    )
+  }
+  // 추가: superadmin 인 사용자의 role/is_active 변경도 superadmin 만.
+  // (admin 이 다른 superadmin 을 강등시켜 자기 권한 확장하는 경로 차단)
+  const { data: rawTarget } = await supabase
+    .from('profiles').select('role').eq('id', params.id).single()
+  const target = rawTarget as unknown as { role: string } | null
+  if (target?.role === 'superadmin' && adminInfo.role !== 'superadmin') {
+    return NextResponse.json(
+      { error: 'superadmin 사용자 변경은 superadmin 만 할 수 있습니다.' },
+      { status: 403 }
+    )
   }
 
   const updateData: Record<string, unknown> = {}

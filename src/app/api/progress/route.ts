@@ -72,35 +72,41 @@ export async function POST(request: Request) {
     const rate = total > 0 ? done / total : 0
 
     if (rate >= COMPLETION_THRESHOLD) {
-      // 수료 처리
-      await (supabase as any)
+      // ★ idempotent flip: status='active' 인 row 만 업데이트.
+      // 동시 두 요청이 들어와도 UPDATE 가 row 를 잡는 쪽이 정확히 하나 → 메일 1회만 발송.
+      const { data: rawFlipped } = await (supabase as any)
         .from('enrollments')
         .update({ status: 'completed' })
         .eq('id', enrollment.id)
+        .eq('status', 'active')
+        .select('id')
+        .maybeSingle()
+      const flippedByUs = !!(rawFlipped as { id: string } | null)
 
       courseCompleted = true
 
-      // 수료증 자동 발급 (이미 있으면 스킵)
-      const { data: rawExistingCert } = await supabase
-        .from('certificates').select('id').eq('user_id', user.id).eq('course_id', courseId).maybeSingle()
-      const existingCert = rawExistingCert as unknown as { id: string } | null
+      // 수료증 발급 — UNIQUE(user_id, course_id) 제약 + onConflict 로 race-safe.
+      // 신규 발급한 row 만 select 로 돌아옴 (ignoreDuplicates=true → 충돌 시 0건).
+      const today = new Date()
+      const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '')
+      const rand = Math.random().toString(36).substring(2, 8).toUpperCase()
+      const certNumber = `CERT-${dateStr}-${rand}`
 
-      let newCertId: string | null = null
-      if (!existingCert) {
-        const today = new Date()
-        const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '')
-        const rand = Math.random().toString(36).substring(2, 8).toUpperCase()
-        const certNumber = `CERT-${dateStr}-${rand}`
+      const { data: rawNewCert } = await (supabase as any)
+        .from('certificates')
+        .upsert(
+          { user_id: user.id, course_id: courseId, cert_number: certNumber },
+          { onConflict: 'user_id,course_id', ignoreDuplicates: true }
+        )
+        .select('id')
+        .maybeSingle()
+      const newCertId = (rawNewCert as { id: string } | null)?.id ?? null
 
-        const { data: rawNewCert } = await (supabase as any)
-          .from('certificates')
-          .insert({ user_id: user.id, course_id: courseId, cert_number: certNumber })
-          .select('id')
-          .single()
-        newCertId = (rawNewCert as { id: string } | null)?.id ?? null
+      // 메일은 우리가 flip 한 경우에만. 다른 동시 요청이 이미 보냈다면 skip.
+      if (!flippedByUs) {
+        return NextResponse.json({ success: true, courseCompleted })
       }
 
-      // 수료 + (필요시) 수료증 메일 발송
       try {
         const { data: rawCourseInfo } = await supabase
           .from('courses').select('title').eq('id', courseId).single()

@@ -13,6 +13,14 @@ export async function GET() {
   const { error: authErr, user, supabase } = await requireAuth()
   if (authErr) return authErr
 
+  // ★ C3/C4: role + is_manager 이중 게이트
+  const { data: rawMyProfile } = await supabase
+    .from('profiles').select('role').eq('id', user.id).single()
+  const myRole = (rawMyProfile as { role: string } | null)?.role
+  if (!myRole || !['org_admin', 'admin', 'superadmin'].includes(myRole)) {
+    return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 })
+  }
+
   // 매니저 회사
   const { data: rawMembership } = await supabase
     .from('company_members')
