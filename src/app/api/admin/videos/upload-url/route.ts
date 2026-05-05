@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
+import { requireAdmin } from '../../_guard'
 
 // 서비스 롤 클라이언트 (Storage 정책 우회)
 function makeAdminClient() {
@@ -14,16 +14,8 @@ function makeAdminClient() {
 // POST /api/admin/videos/upload-url
 // body: { courseId: string, fileName: string, contentType: string }
 export async function POST(req: NextRequest) {
-  // ── 1. 로그인 및 관리자 권한 확인 ────────────────────────────
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 })
-
-  const { data: rawProfile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  const profile = rawProfile as unknown as { role: string } | null
-  if (!profile || !['admin', 'superadmin'].includes(profile.role)) {
-    return NextResponse.json({ error: '관리자 권한이 필요합니다.' }, { status: 403 })
-  }
+  const { guard } = await requireAdmin()
+  if (guard) return guard
 
   // ── 2. 요청 파싱 ─────────────────────────────────────────────
   const body = await req.json()

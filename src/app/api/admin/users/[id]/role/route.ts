@@ -1,41 +1,15 @@
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
-
-function makeSupabase() {
-  const cookieStore = cookies()
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: (list: { name: string; value: string; options?: any }[]) => {
-          try { list.forEach(({ name, value, options }) => cookieStore.set(name, value, options)) } catch {}
-        },
-      },
-    }
-  )
-}
-
-// 호출자의 role 까지 함께 반환 — superadmin 권한 분리 (H2) 에 사용.
-async function checkAdmin(supabase: ReturnType<typeof makeSupabase>) {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  const { data: rawProfile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  const profile = rawProfile as unknown as { role: string } | null
-  if (!profile || !['admin', 'superadmin'].includes(profile.role)) return null
-  return { user, role: profile.role as 'admin' | 'superadmin' }
-}
+import { requireAnyRole } from '../../../_guard'
 
 // GET: return profile + enrollments with progress
 export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const supabase = makeSupabase()
-  const adminInfo = await checkAdmin(supabase)
-  if (!adminInfo) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const { guard, supabase: sb, role: callerRole } = await requireAnyRole(['admin', 'superadmin'])
+  if (guard) return guard
+  const supabase = sb!
+  const adminInfo = { role: callerRole as 'admin' | 'superadmin' }
 
   const { data: rawProfile } = await supabase
     .from('profiles')
@@ -97,9 +71,10 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const supabase = makeSupabase()
-  const adminInfo = await checkAdmin(supabase)
-  if (!adminInfo) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const { guard, supabase: sb, role: callerRole } = await requireAnyRole(['admin', 'superadmin'])
+  if (guard) return guard
+  const supabase = sb!
+  const adminInfo = { role: callerRole as 'admin' | 'superadmin' }
 
   const body = await req.json()
   const { role, isActive } = body as { role?: string; isActive?: boolean }
