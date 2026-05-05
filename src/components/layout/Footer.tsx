@@ -6,6 +6,8 @@ interface FooterProps {
   serviceLinks?: NavLink[]
   supportLinks?: NavLink[]
   copyright?: string
+  /** 공개된 약관/개인정보 등 정적 페이지 — 자동으로 footer 하단에 노출 */
+  legalPages?: { slug: string; title: string }[]
 }
 
 const DEFAULT_SERVICE: NavLink[] = [
@@ -21,7 +23,7 @@ const DEFAULT_SUPPORT: NavLink[] = [
   { id: 'sup-2', label: '수료증', href: '/my/certificates', target: '_self' },
 ]
 
-export function Footer({ serviceLinks, supportLinks, copyright }: FooterProps) {
+export function Footer({ serviceLinks, supportLinks, copyright, legalPages = [] }: FooterProps) {
   const sLinks = serviceLinks && serviceLinks.length > 0 ? serviceLinks : DEFAULT_SERVICE
   const supLinks = supportLinks && supportLinks.length > 0 ? supportLinks : DEFAULT_SUPPORT
   const copyrightText = copyright || `${new Date().getFullYear()} Ingrow LMS. All rights reserved.`
@@ -81,10 +83,22 @@ export function Footer({ serviceLinks, supportLinks, copyright }: FooterProps) {
           </div>
         </div>
 
-        <div className="mt-8 border-t border-gray-100 pt-6">
-          <p className="text-xs text-gray-400">
-            © {copyrightText}
-          </p>
+        <div className="mt-8 flex flex-col gap-3 border-t border-gray-100 pt-6 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-gray-400">© {copyrightText}</p>
+          {legalPages.length > 0 && (
+            <ul className="flex flex-wrap gap-x-4 gap-y-1">
+              {legalPages.map((p) => (
+                <li key={p.slug}>
+                  <Link
+                    href={`/p/${p.slug}`}
+                    className="text-xs text-gray-500 hover:text-navy"
+                  >
+                    {p.title}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </footer>

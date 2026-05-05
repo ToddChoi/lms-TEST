@@ -18,6 +18,8 @@ import {
   Navigation,
   LayoutTemplate,
   Blocks,
+  FileText,
+  Image as ImageIcon,
 } from 'lucide-react'
 import { AdminSidebarBottom } from '@/components/admin/AdminSidebarBottom'
 import { AdminNavLink } from '@/components/admin/AdminNavLink'
@@ -70,6 +72,8 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/admin/cms',                label: '홈페이지 관리', icon: LayoutTemplate },
       { href: '/admin/cms/builder/home',   label: '페이지 빌더',   icon: Blocks },
+      { href: '/admin/pages',              label: '약관·정책 페이지', icon: FileText },
+      { href: '/admin/media',              label: '미디어 라이브러리', icon: ImageIcon },
       { href: '/admin/cms/menus',          label: '네비게이션',    icon: Navigation },
       { href: '/admin/notices',            label: '공지사항',     icon: Bell },
       { href: '/admin/faqs',               label: 'FAQ',          icon: HelpCircle },

@@ -11,6 +11,7 @@ export default async function PublicLayout({ children }: { children: React.React
   let serviceLinks: NavLink[] = []
   let supportLinks: NavLink[] = []
   let copyright: string | undefined
+  let legalPages: { slug: string; title: string }[] = []
 
   // 현재 요청의 회사(tenant) 해석. white-label 회사면 Header 가 회사 로고로 노출.
   const tenant = await getTenant().catch(() => null)
@@ -54,6 +55,15 @@ export default async function PublicLayout({ children }: { children: React.React
     const settingsMap = Object.fromEntries((settings ?? []).map((s) => [s.key, s.value]))
     copyright = settingsMap.footer_text || settingsMap.footer_copyright || undefined
 
+    // 공개 약관/정책 페이지 — Footer 하단 자동 노출
+    const { data: rawLegal } = await supabase
+      .from('pages')
+      .select('slug, title')
+      .eq('status', 'published')
+      .eq('scope_type', 'global')
+      .order('updated_at')
+    legalPages = (rawLegal as unknown as { slug: string; title: string }[] | null) ?? []
+
   } catch {
     // 오류 시 기본값으로 렌더링
   }
@@ -66,7 +76,7 @@ export default async function PublicLayout({ children }: { children: React.React
         tenant={tenant ? { name: tenant.name, logo_url: tenant.logo_url } : null}
       />
       <main className="flex-1">{children}</main>
-      <Footer serviceLinks={serviceLinks} supportLinks={supportLinks} copyright={copyright} />
+      <Footer serviceLinks={serviceLinks} supportLinks={supportLinks} copyright={copyright} legalPages={legalPages} />
       <MobileBottomNav />
     </div>
   )

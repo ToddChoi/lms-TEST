@@ -17,7 +17,9 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, ChevronUp, ChevronDown, Trash2, Eye, EyeOff, Settings } from 'lucide-react'
+import { Plus, ChevronUp, ChevronDown, Trash2, Eye, EyeOff, Settings, Image as ImageIcon, BookOpen } from 'lucide-react'
+import { CoursePicker } from './CoursePicker'
+import { ImagePicker } from './ImagePicker'
 
 interface BlockType {
   id: string
@@ -470,19 +472,22 @@ function FieldInput({
       />
     )
   }
-  if (field.type === 'image' || field.type === 'course_picker' || field.type === 'company_picker') {
-    // P5 (미디어 라이브러리) / P4 (회사 picker) 에서 본격 — 지금은 텍스트 입력 fallback
+  if (field.type === 'image') {
+    return <ImageField value={String(value ?? '')} onChange={(v) => onChange(v)} />
+  }
+  if (field.type === 'course_picker') {
+    const ids = Array.isArray(value) ? (value as string[]) : []
+    return <CourseField ids={ids} onChange={(v) => onChange(v)} />
+  }
+  if (field.type === 'company_picker') {
+    // 회사 picker — P4 R2 에서 본격. 현재는 텍스트 입력 fallback.
     return (
       <input
         type="text"
         value={String(value ?? '')}
         onChange={(e) => onChange(e.target.value)}
         className="mt-1 w-full rounded-md border border-border-subtle bg-surface px-3 py-2 text-body-sm focus:border-accent focus:outline-none"
-        placeholder={
-          field.type === 'image'           ? 'https://... (P5: 미디어 라이브러리 picker)' :
-          field.type === 'course_picker'   ? '강좌 ID 들 콤마 구분 (P4: 강좌 picker)' :
-                                             '회사 ID (P4: 회사 picker)'
-        }
+        placeholder="회사 ID (P4 R2: 회사 picker 추가 예정)"
       />
     )
   }
@@ -494,6 +499,72 @@ function FieldInput({
       onChange={(e) => onChange(e.target.value)}
       className="mt-1 w-full rounded-md border border-border-subtle bg-surface px-3 py-2 text-body-sm focus:border-accent focus:outline-none"
     />
+  )
+}
+
+// ─── Image / Course field — picker 통합 ─────────
+function ImageField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="mt-1 flex items-center gap-2">
+      <div className="flex h-12 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border-subtle bg-surface-muted">
+        {value ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={value} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <ImageIcon className="h-4 w-4 text-gray-400" />
+        )}
+      </div>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="https://..."
+        className="flex-1 rounded-md border border-border-subtle bg-surface px-3 py-2 text-body-sm focus:border-accent focus:outline-none"
+      />
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="rounded-md border border-accent bg-surface px-3 py-2 text-caption text-accent hover:bg-accent-pale"
+      >
+        라이브러리
+      </button>
+      {open && (
+        <ImagePicker
+          current={value}
+          onClose={() => setOpen(false)}
+          onConfirm={(url) => { onChange(url); setOpen(false) }}
+        />
+      )}
+    </div>
+  )
+}
+
+function CourseField({ ids, onChange }: { ids: string[]; onChange: (ids: string[]) => void }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="mt-1 flex items-center gap-2">
+      <div className="flex flex-1 items-center gap-2 rounded-md border border-border-subtle bg-surface px-3 py-2 text-body-sm">
+        <BookOpen className="h-4 w-4 text-gray-400" />
+        <span className={ids.length === 0 ? 'text-gray-400' : 'text-navy'}>
+          {ids.length === 0 ? '선택된 강좌 없음' : `${ids.length}개 강좌 선택됨`}
+        </span>
+      </div>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="rounded-md border border-accent bg-surface px-3 py-2 text-caption text-accent hover:bg-accent-pale"
+      >
+        강좌 선택
+      </button>
+      {open && (
+        <CoursePicker
+          initialIds={ids}
+          onClose={() => setOpen(false)}
+          onConfirm={(newIds) => { onChange(newIds); setOpen(false) }}
+        />
+      )}
+    </div>
   )
 }
 
