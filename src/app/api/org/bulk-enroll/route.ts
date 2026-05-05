@@ -19,12 +19,16 @@ export async function POST(req: NextRequest) {
   if (authErr) return authErr
 
   const body = await req.json()
-  const memberIds = (body.memberIds ?? []) as string[]
-  const courseIds = (body.courseIds ?? []) as string[]
+  const rawMemberIds = (body.memberIds ?? []) as string[]
+  const rawCourseIds = (body.courseIds ?? []) as string[]
 
-  if (!Array.isArray(memberIds) || memberIds.length === 0)
+  // 중복 입력 시 created/skipped 카운트 부풀림 방지
+  const memberIds = [...new Set(rawMemberIds.filter(Boolean))]
+  const courseIds = [...new Set(rawCourseIds.filter(Boolean))]
+
+  if (memberIds.length === 0)
     return NextResponse.json({ error: '직원을 선택해주세요.' }, { status: 400 })
-  if (!Array.isArray(courseIds) || courseIds.length === 0)
+  if (courseIds.length === 0)
     return NextResponse.json({ error: '강좌를 선택해주세요.' }, { status: 400 })
 
   // ★ C3/C4: role + is_manager 둘 다 검사. role 만 검사하면 demote 후 is_manager

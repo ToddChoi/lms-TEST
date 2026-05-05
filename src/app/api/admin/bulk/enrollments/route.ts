@@ -7,10 +7,12 @@ export async function POST(req: NextRequest) {
   const supabase = sb!
 
   const body = await req.json()
-  const { course_id, emails } = body as { course_id?: string; emails?: string[] }
-  if (!course_id || !Array.isArray(emails) || emails.length === 0) {
+  const { course_id, emails: rawEmails } = body as { course_id?: string; emails?: string[] }
+  if (!course_id || !Array.isArray(rawEmails) || rawEmails.length === 0) {
     return NextResponse.json({ error: 'course_id와 emails 배열이 필요합니다.' }, { status: 400 })
   }
+  // 같은 이메일 중복 입력 시 success 카운트 부풀림 방지
+  const emails = [...new Set(rawEmails.map((e) => e.trim().toLowerCase()).filter(Boolean))]
 
   // Look up profiles by email
   const { data: rawProfiles } = await supabase

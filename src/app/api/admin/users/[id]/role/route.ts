@@ -6,10 +6,10 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const { guard, supabase: sb, role: callerRole } = await requireAnyRole(['admin', 'superadmin'])
+  // GET 은 callerRole 불필요 — 단순 admin 통과 검증만.
+  const { guard, supabase: sb } = await requireAnyRole(['admin', 'superadmin'])
   if (guard) return guard
   const supabase = sb!
-  const adminInfo = { role: callerRole as 'admin' | 'superadmin' }
 
   const { data: rawProfile } = await supabase
     .from('profiles')
