@@ -6,6 +6,7 @@ import SectionRenderer, {
   type CategoryData,
   type StatsData,
 } from '@/components/home/SectionRenderer'
+import { SurfaceBlocks } from '@/components/blocks/SurfaceBlocks'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -104,8 +105,14 @@ export default async function HomePage() {
   }
 
   // ── 6. 렌더링 ────────────────────────────────────────────
+  // 빌더 결과(content_blocks)를 위에, 기존 home_sections 결과를 아래에.
+  // "홈 빌더" 에서 추가한 블록은 즉시 홈 상단에 노출됨 — 비어 있으면 무영향.
+  // 점진 마이그레이션: 운영팀이 home_sections 의 섹션을 빌더 블록으로 옮기면
+  // 자연스럽게 home_sections 가 비어 가고, 결국 SectionRenderer 제거 가능.
   return (
     <div className="flex flex-col">
+      <SurfaceBlocks surface="home" />
+
       {sections.map((section) => (
         <SectionRenderer
           key={section.id}

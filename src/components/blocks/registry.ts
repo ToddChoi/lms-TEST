@@ -18,6 +18,8 @@ import { StatsBlock, type StatsConfig }                     from './StatsBlock'
 import { CategoriesBlock, type CategoriesConfig }           from './CategoriesBlock'
 import { CustomHtmlBlock, type CustomHtmlConfig }           from './CustomHtmlBlock'
 import { BannerBlock, type BannerConfig }                   from './BannerBlock'
+import { FeatureGridBlock, type FeatureGridConfig }         from './FeatureGridBlock'
+import { CtaBlock, type CtaConfig }                         from './CtaBlock'
 
 export interface BlockProps<C = Record<string, unknown>> {
   config: C
@@ -36,6 +38,8 @@ export const REGISTRY: Record<string, AnyBlockComponent> = {
   stats:              StatsBlock as AnyBlockComponent,
   partner_logos:      PartnerLogosBlock as AnyBlockComponent,
   testimonials:       TestimonialsBlock as AnyBlockComponent,
+  feature_grid:       FeatureGridBlock as AnyBlockComponent,
+  cta:                CtaBlock as AnyBlockComponent,
   company_collection: FeaturedCoursesBlock as AnyBlockComponent, // P4 에서 분기 — 지금은 동일
   custom_html:        CustomHtmlBlock as AnyBlockComponent,
 }
@@ -48,6 +52,8 @@ export type BlockConfigMap = {
   stats:              StatsConfig
   partner_logos:      PartnerLogosConfig
   testimonials:       TestimonialsConfig
+  feature_grid:       FeatureGridConfig
+  cta:                CtaConfig
   company_collection: FeaturedCoursesConfig
   custom_html:        CustomHtmlConfig
 }
