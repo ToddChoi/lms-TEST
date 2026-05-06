@@ -21,12 +21,29 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'surface 쿼리 필요' }, { status: 400 })
   }
 
-  const { data, error } = await supabase
+  // scope 필터 — 운영자가 어느 레인의 페이지를 편집하는지 명확히 분리.
+  // 'global'  : 모든 사용자가 보는 기본 페이지
+  // 'company' : 특정 회사 전용 (subdomain 진입 시 노출)
+  // 미지정    : 호환 — 모든 scope (구버전 동작)
+  const scope = req.nextUrl.searchParams.get('scope')           // 'global' | 'company' | null
+  const companyId = req.nextUrl.searchParams.get('companyId')
+
+  let query = supabase
     .from('content_blocks')
     .select('*')
     .eq('surface', surface)
     .order('sort_order')
 
+  if (scope === 'global') {
+    query = query.eq('scope_type', 'global').is('company_id', null) as typeof query
+  } else if (scope === 'company') {
+    if (!companyId) {
+      return NextResponse.json({ error: 'scope=company 시 companyId 필요' }, { status: 400 })
+    }
+    query = query.eq('scope_type', 'company').eq('company_id', companyId) as typeof query
+  }
+
+  const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ blocks: data ?? [] })
 }

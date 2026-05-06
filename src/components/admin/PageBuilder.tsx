@@ -49,9 +49,13 @@ interface Block {
 interface Props {
   surface: string
   surfaceLabel?: string
+  /** 'global' (전체 공개 default) 또는 'company' (회사 전용). 기본 global. */
+  scope?: 'global' | 'company'
+  /** scope='company' 시 필수 — 어느 회사의 페이지를 편집하는지 */
+  companyId?: string
 }
 
-export function PageBuilder({ surface, surfaceLabel }: Props) {
+export function PageBuilder({ surface, surfaceLabel, scope = 'global', companyId }: Props) {
   const router = useRouter()
   const [blocks, setBlocks] = useState<Block[]>([])
   const [types, setTypes] = useState<BlockType[]>([])
@@ -59,10 +63,17 @@ export function PageBuilder({ surface, surfaceLabel }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [showAdd, setShowAdd] = useState(false)
 
+  // API 호출용 query — scope 별로 분리해 다른 레인의 블록이 혼입되지 않게 함.
+  const blocksUrl = (() => {
+    const params = new URLSearchParams({ surface, scope })
+    if (scope === 'company' && companyId) params.set('companyId', companyId)
+    return `/api/admin/content-blocks?${params.toString()}`
+  })()
+
   const reload = useCallback(async () => {
     setLoading(true)
     const [bRes, tRes] = await Promise.all([
-      fetch(`/api/admin/content-blocks?surface=${encodeURIComponent(surface)}`),
+      fetch(blocksUrl),
       fetch('/api/admin/block-types'),
     ])
     const { blocks } = await bRes.json()
@@ -70,7 +81,7 @@ export function PageBuilder({ surface, surfaceLabel }: Props) {
     setBlocks(blocks ?? [])
     setTypes(types ?? [])
     setLoading(false)
-  }, [surface])
+  }, [blocksUrl])
 
   useEffect(() => { reload() }, [reload])
 
@@ -78,7 +89,13 @@ export function PageBuilder({ surface, surfaceLabel }: Props) {
     const res = await fetch('/api/admin/content-blocks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ surface, block_type, config: {} }),
+      body: JSON.stringify({
+        surface,
+        block_type,
+        config: {},
+        scope_type: scope,
+        company_id: scope === 'company' ? companyId : null,
+      }),
     })
     if (res.ok) {
       setShowAdd(false)
@@ -143,9 +160,22 @@ export function PageBuilder({ surface, surfaceLabel }: Props) {
     <div className="space-y-4">
       <div className="flex items-end justify-between">
         <div>
-          <h2 className="text-h4 text-navy">페이지 빌더 — {surfaceLabel ?? surface}</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-h4 text-navy">페이지 빌더 — {surfaceLabel ?? surface}</h2>
+            <span
+              className={`rounded px-1.5 py-0.5 text-micro font-semibold uppercase tracking-wider ${
+                scope === 'company'
+                  ? 'bg-accent-pale text-accent'
+                  : 'bg-surface-muted text-gray-600'
+              }`}
+            >
+              {scope === 'company' ? '회사 전용' : '전체 공개'}
+            </span>
+          </div>
           <p className="mt-1 text-body-sm text-gray-500">
-            블록 단위로 페이지를 구성합니다. draft 상태는 사이트에 노출되지 않습니다.
+            {scope === 'company'
+              ? '이 회사의 subdomain 진입자만 보는 블록입니다. 회사 도메인 설정 후 노출.'
+              : '모든 사용자가 보는 기본 페이지입니다. draft 상태는 사이트에 노출되지 않습니다.'}
           </p>
         </div>
         <button
