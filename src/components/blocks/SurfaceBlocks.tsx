@@ -76,9 +76,9 @@ export async function SurfaceBlocks({ surface, companyId }: Props) {
 
   // ── 의존 데이터 prefetch ─────────────────────────
   // 같은 컴포넌트 타입이 여러 블록에 걸쳐 있어도 N+1 방지 위해 한 번에.
+  // banner 는 이제 config.items 인라인이라 별도 fetch 없음.
   const courseIdsToFetch = new Set<string>()
   const needCategories   = blocks.some((b) => b.block_type === 'categories')
-  const bannerSurfaces   = blocks.filter((b) => b.block_type === 'banner').map((b) => b.id)
 
   for (const b of blocks) {
     if (b.block_type === 'featured_courses' || b.block_type === 'company_collection') {
@@ -117,9 +117,6 @@ export async function SurfaceBlocks({ surface, companyId }: Props) {
     id: string; slug: string; name: string; description: string | null
     icon: string | null; color: string | null
   }> | null) ?? []
-
-  // banner 콘텐츠 fetch — 별도 라운드. 현재 BannerBlock 은 빈 배열로 동작.
-  void bannerSurfaces
 
   // ── 렌더 ────────────────────────────────────────
   return (

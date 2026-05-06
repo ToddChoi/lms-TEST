@@ -20,6 +20,7 @@ import { useRouter } from 'next/navigation'
 import { Plus, ChevronUp, ChevronDown, Trash2, Eye, EyeOff, Settings, Image as ImageIcon, BookOpen } from 'lucide-react'
 import { CoursePicker } from './CoursePicker'
 import { ImagePicker } from './ImagePicker'
+import { BannerEditor } from './BannerEditor'
 
 interface BlockType {
   id: string
@@ -30,7 +31,16 @@ interface BlockType {
 
 interface FieldSchema {
   name: string
-  type: 'text' | 'textarea' | 'number' | 'select' | 'image' | 'json' | 'course_picker' | 'company_picker'
+  type:
+    | 'text'
+    | 'textarea'
+    | 'number'
+    | 'select'
+    | 'image'
+    | 'json'
+    | 'course_picker'
+    | 'company_picker'
+    | 'banner_items'      // 배너 multi-item 에디터 (BannerEditor)
   label: string
   required?: boolean
   options?: string[]
@@ -509,6 +519,12 @@ function FieldInput({
     const ids = Array.isArray(value) ? (value as string[]) : []
     return <CourseField ids={ids} onChange={(v) => onChange(v)} />
   }
+  if (field.type === 'banner_items') {
+    const items = Array.isArray(value)
+      ? (value as Array<{ title: string; image_url?: string; link_url?: string; link_target?: string }>)
+      : []
+    return <BannerItemsField items={items} onChange={(v) => onChange(v)} />
+  }
   if (field.type === 'company_picker') {
     // 회사 picker — P4 R2 에서 본격. 현재는 텍스트 입력 fallback.
     return (
@@ -564,6 +580,39 @@ function ImageField({ value, onChange }: { value: string; onChange: (v: string) 
           current={value}
           onClose={() => setOpen(false)}
           onConfirm={(url) => { onChange(url); setOpen(false) }}
+        />
+      )}
+    </div>
+  )
+}
+
+function BannerItemsField({
+  items, onChange,
+}: {
+  items: Array<{ title: string; image_url?: string; link_url?: string; link_target?: string }>
+  onChange: (items: Array<{ title: string; image_url?: string; link_url?: string; link_target?: string }>) => void
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="mt-1 flex items-center gap-2">
+      <div className="flex flex-1 items-center gap-2 rounded-md border border-border-subtle bg-surface px-3 py-2 text-body-sm">
+        <ImageIcon className="h-4 w-4 text-gray-400" />
+        <span className={items.length === 0 ? 'text-gray-400' : 'text-navy'}>
+          {items.length === 0 ? '배너 항목 없음' : `${items.length}개 항목`}
+        </span>
+      </div>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="rounded-md border border-accent bg-surface px-3 py-2 text-caption text-accent hover:bg-accent-pale"
+      >
+        편집
+      </button>
+      {open && (
+        <BannerEditor
+          initial={items}
+          onClose={() => setOpen(false)}
+          onConfirm={(next) => { onChange(next); setOpen(false) }}
         />
       )}
     </div>

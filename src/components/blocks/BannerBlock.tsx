@@ -6,33 +6,33 @@ export interface BannerItem {
   title: string
   image_url?: string | null
   link_url?: string | null
-  link_target?: string
+  link_target?: string             // '_self' | '_blank'
 }
 
 export interface BannerConfig {
   layout?: 'single' | 'slider' | 'grid'
-}
-
-interface InjectedProps {
-  banners?: BannerItem[]
+  items?: BannerItem[]              // 인라인 배너 — content_blocks.config 에 저장
 }
 
 /**
- * 배너 슬롯 — single/slider/grid 3종.
- * P2 시점에는 single + grid 만 렌더, slider 는 P3 에서 client component 로.
+ * 배너 슬롯 — config.items 에서 직접 읽음.
+ *
+ * layout:
+ *   single : 첫 배너만 풀폭 (5:1 비율)
+ *   grid   : 3열 그리드 (3:1 비율)
+ *   slider : (P 후속) — 일단 grid 와 동일 렌더
  */
-export function BannerBlock(
-  { config, banners = [] }: BlockProps<BannerConfig> & InjectedProps,
-) {
-  if (banners.length === 0) return null
+export function BannerBlock({ config }: BlockProps<BannerConfig>) {
+  const items = config.items ?? []
+  if (items.length === 0) return null
   const layout = config.layout ?? 'single'
 
-  if (layout === 'grid') {
+  if (layout === 'grid' || layout === 'slider') {
     return (
       <section className="bg-surface py-8">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {banners.map((b, i) => (
+            {items.map((b, i) => (
               <BannerItemView key={i} b={b} />
             ))}
           </div>
@@ -42,11 +42,10 @@ export function BannerBlock(
   }
 
   // single (default) — 첫 배너만
-  const b = banners[0]
   return (
     <section className="bg-surface py-6">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <BannerItemView b={b} large />
+        <BannerItemView b={items[0]} large />
       </div>
     </section>
   )
@@ -66,7 +65,7 @@ function BannerItemView({ b, large = false }: { b: BannerItem; large?: boolean }
         />
       ) : (
         <div className="flex h-full items-center justify-center text-body text-gray-400">
-          {b.title}
+          {b.title || '(이미지 없음)'}
         </div>
       )}
     </div>
