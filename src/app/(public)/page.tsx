@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { getTenant } from '@/lib/tenant'
 import { SurfaceBlocks } from '@/components/blocks/SurfaceBlocks'
 import type { Metadata } from 'next'
 
@@ -32,15 +33,36 @@ export default async function HomePage() {
   return <EmptyHomeFallback />
 }
 
+/**
+ * SurfaceBlocks 와 동일한 scope 우선순위로 카운트:
+ *   tenant 있으면 → company 블록 우선, 없으면 global fallback
+ *   tenant 없으면 → global 만 카운트
+ *
+ * 이전 버전 버그: scope 무시하고 surface 단일 필터 → 메인 도메인 진입 시
+ * ACME 회사 블록이 카운트돼 hasBlocks=true 였지만 SurfaceBlocks 는 global 0 으로 null 리턴
+ * → 페이지 빈 채로 끝나는 침묵 실패.
+ */
 async function checkHomeBlocksExist(): Promise<boolean> {
   try {
     const supabase = createClient()
-    const { count } = await supabase
+    const tenant = await getTenant().catch(() => null)
+    if (tenant?.id) {
+      const { count: cCount } = await supabase
+        .from('content_blocks')
+        .select('*', { count: 'exact', head: true })
+        .eq('surface', 'home')
+        .eq('status', 'published')
+        .eq('scope_type', 'company')
+        .eq('company_id', tenant.id)
+      if ((cCount ?? 0) > 0) return true
+    }
+    const { count: gCount } = await supabase
       .from('content_blocks')
       .select('*', { count: 'exact', head: true })
       .eq('surface', 'home')
       .eq('status', 'published')
-    return (count ?? 0) > 0
+      .eq('scope_type', 'global')
+    return (gCount ?? 0) > 0
   } catch {
     return false
   }
