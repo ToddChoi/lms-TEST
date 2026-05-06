@@ -37,10 +37,27 @@ const ICON_MAP: Record<string, ComponentType<{ className?: string }>> = {
 /**
  * 혜택/기능 카드 grid — 4 카드(아이콘+제목+설명) 구조.
  * B2B 도입 혜택, 강의 기능 소개, About 페이지의 핵심 가치 등에 사용.
+ *
+ * items 비어 있으면 — heading 만 있으면 그것만 노출 (운영자가 작업 중인 상태 가시화).
+ * heading 도 없으면 null (자리 차지 안 함).
  */
 export function FeatureGridBlock({ config }: BlockProps<FeatureGridConfig>) {
   const items = config.items ?? []
-  if (items.length === 0) return null
+  if (items.length === 0) {
+    if (!config.heading?.trim() && !config.subheading?.trim()) return null
+    // heading 만 있는 경우 — 운영자가 items 채우기 전 임시 상태.
+    return (
+      <section className={`${config.surface === 'white' ? 'bg-surface' : 'bg-silver'} py-16`}>
+        <div className="mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
+          {config.heading && <h2 className="text-h3 text-navy">{config.heading}</h2>}
+          {config.subheading && (
+            <p className="mt-2 text-body-sm text-gray-500">{config.subheading}</p>
+          )}
+          <p className="mt-6 text-caption text-gray-400">아직 항목이 없습니다.</p>
+        </div>
+      </section>
+    )
+  }
 
   const cols = config.columns ?? 4
   const colClass = {
