@@ -118,8 +118,7 @@ export async function SurfaceBlocks({ surface, companyId }: Props) {
     icon: string | null; color: string | null
   }> | null) ?? []
 
-  // banners 는 P2 에선 home_sections legacy 와 분리 — content_blocks.config.layout 만 적용.
-  // 실제 banner 콘텐츠는 P3 에서 banners 테이블의 scope/company_id 활용해 조회.
+  // banner 콘텐츠 fetch — 별도 라운드. 현재 BannerBlock 은 빈 배열로 동작.
   void bannerSurfaces
 
   // ── 렌더 ────────────────────────────────────────

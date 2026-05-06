@@ -68,16 +68,18 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: '사이트 콘텐츠',
+    // 콘텐츠 (CMS) — 페이지 빌더 + 정적 페이지 + 공지·FAQ + 메뉴 + 미디어 통합 그룹.
+    // 레거시 '홈페이지 관리'(home_sections) 는 Phase 5 에서 제거됨.
+    label: '콘텐츠 (CMS)',
     items: [
-      { href: '/admin/cms',                label: '홈페이지 관리', icon: LayoutTemplate },
-      { href: '/admin/cms/builder/home',   label: '페이지 빌더',   icon: Blocks },
-      { href: '/admin/pages',              label: '약관·정책 페이지', icon: FileText },
-      { href: '/admin/media',              label: '미디어 라이브러리', icon: ImageIcon },
-      { href: '/admin/cms/menus',          label: '네비게이션',    icon: Navigation },
-      { href: '/admin/notices',            label: '공지사항',     icon: Bell },
-      { href: '/admin/faqs',               label: 'FAQ',          icon: HelpCircle },
-      { href: '/admin/contacts',           label: '이용문의',     icon: MessageSquare },
+      { href: '/admin/cms/builder/home', label: '페이지 빌더 (홈)',  icon: Blocks },
+      { href: '/admin/cms/builder/b2b',  label: '페이지 빌더 (B2B)', icon: LayoutTemplate },
+      { href: '/admin/pages',            label: '정적 페이지',       icon: FileText },
+      { href: '/admin/notices',          label: '공지사항',          icon: Bell },
+      { href: '/admin/faqs',             label: 'FAQ',               icon: HelpCircle },
+      { href: '/admin/contacts',         label: '이용문의',          icon: MessageSquare },
+      { href: '/admin/cms/menus',        label: '네비게이션',        icon: Navigation },
+      { href: '/admin/media',            label: '미디어 라이브러리', icon: ImageIcon },
     ],
   },
   {

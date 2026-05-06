@@ -13,13 +13,12 @@ export interface HeroConfig {
 }
 
 /**
- * Hero — content_blocks 용 신버전.
- * 기존 SectionRenderer 의 hero 와 분리 — 점진 교체용.
+ * Hero — content_blocks 의 hero block_type 컴포넌트.
  *
  * variant:
  *   centered : 중앙정렬 헤드라인 + CTA + (옵션) 배경 이미지
  *   split    : 좌측 카피 / 우측 이미지 (B2B 친화)
- *   video    : 풀블리드 비디오 배경 (P3 시점에 본격 구현)
+ *   video    : 풀블리드 비디오 배경 (별도 라운드)
  */
 export function HeroBlock({ config }: BlockProps<HeroConfig>) {
   const variant = config.variant ?? 'centered'
