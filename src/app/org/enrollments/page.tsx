@@ -1,4 +1,4 @@
-import { requireManagerCompany, getCompanyMemberIds } from '@/lib/org'
+﻿import { requireManagerCompany, getCompanyMemberIds } from '@/lib/org'
 import { formatDate } from '@/lib/utils'
 import Link from 'next/link'
 
@@ -123,7 +123,7 @@ export default async function OrgEnrollmentsPage({
         })}
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-100">
         <table className="w-full text-sm">
           <thead className="bg-[#F4F6FA] text-[#0B1F3A]">
             <tr>

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -87,7 +87,7 @@ export function CompanyMemberManager({ companyId, initialMembers }: CompanyMembe
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-100">
         <table className="w-full text-sm">
           <thead className="bg-[#F4F6FA] text-[#0B1F3A]">
             <tr>

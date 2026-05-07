@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
@@ -211,7 +211,7 @@ export default function UserDetailPage() {
       </div>
 
       {/* Enrollments */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-100">
         <div className="p-4 border-b border-gray-100">
           <h2 className="text-lg font-semibold text-[#0B1F3A]">수강 내역 ({enrollments.length})</h2>
         </div>

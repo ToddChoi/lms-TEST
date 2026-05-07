@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { formatDate } from '@/lib/utils'
 import { DailyEnrollChart, CategoryBarChart, CompletionPieChart } from '@/components/admin/StatCharts'
@@ -183,7 +183,7 @@ export default async function AdminStatisticsPage() {
       </div>
 
       {/* Recent Enrollments */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-100">
         <div className="p-4 border-b border-gray-100">
           <h2 className="text-base font-semibold text-[#0B1F3A]">최근 수강신청 10건</h2>
         </div>
@@ -226,7 +226,7 @@ export default async function AdminStatisticsPage() {
       </div>
 
       {/* 기업별 수강 현황 */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mt-8">
+      <div className="overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-100 mt-8">
         <div className="p-4 border-b border-gray-100">
           <h2 className="text-base font-semibold text-[#0B1F3A]">기업별 수강 현황</h2>
         </div>

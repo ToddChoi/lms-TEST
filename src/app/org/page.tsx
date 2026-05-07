@@ -1,4 +1,4 @@
-import { requireManagerCompany, getCompanyMemberIds } from '@/lib/org'
+﻿import { requireManagerCompany, getCompanyMemberIds } from '@/lib/org'
 import { formatDate } from '@/lib/utils'
 
 export default async function OrgDashboardPage() {
@@ -139,7 +139,7 @@ export default async function OrgDashboardPage() {
         ))}
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-100">
         <div className="p-4 border-b border-gray-100">
           <h2 className="text-base font-semibold text-[#0B1F3A]">최근 수강신청 10건</h2>
         </div>

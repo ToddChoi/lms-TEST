@@ -1,30 +1,11 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import {
-  LayoutDashboard,
-  BookOpen,
-  Users,
-  ClipboardList,
-  Award,
-  Building2,
-  BarChart3,
-  Bell,
-  Settings,
-  Tag,
-  Upload,
-  CreditCard,
-  HelpCircle,
-  MessageSquare,
-  Navigation,
-  LayoutTemplate,
-  Blocks,
-  FileText,
-  Image as ImageIcon,
-} from 'lucide-react'
 import { AdminSidebarBottom } from '@/components/admin/AdminSidebarBottom'
 import { AdminNavLink } from '@/components/admin/AdminNavLink'
+import { AdminMobileNav } from '@/components/admin/AdminMobileNav'
 import { ConfirmDialogHost } from '@/components/ui/ConfirmDialog'
 import { Logo } from '@/components/brand/Logo'
+import { NAV_GROUPS } from '@/components/admin/admin-nav'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -33,62 +14,6 @@ export const metadata: Metadata = {
     template: '%s | 관리자 | Ingrow LMS',
   },
 }
-
-/**
- * 사이드바 IA — Linear/Notion 패턴.
- * 16개 평면 → 4 섹션 그룹. 섹션 라벨은 uppercase 작게.
- */
-type NavItem = { href: string; label: string; icon: typeof LayoutDashboard; exact?: boolean }
-type NavGroup = { label: string; items: NavItem[] }
-
-const NAV_GROUPS: NavGroup[] = [
-  {
-    label: '개요',
-    items: [
-      { href: '/admin',            label: '대시보드',     icon: LayoutDashboard, exact: true },
-      { href: '/admin/statistics', label: '통계',         icon: BarChart3 },
-    ],
-  },
-  {
-    label: '학습 콘텐츠',
-    items: [
-      { href: '/admin/courses',    label: '강좌 관리',    icon: BookOpen },
-      { href: '/admin/categories', label: '카테고리',     icon: Tag },
-    ],
-  },
-  {
-    label: '회원·결제',
-    items: [
-      { href: '/admin/users',        label: '회원 관리',  icon: Users },
-      { href: '/admin/enrollments',  label: '수강 신청',  icon: ClipboardList },
-      { href: '/admin/certificates', label: '수료증',     icon: Award },
-      { href: '/admin/payments',     label: '결제 내역',  icon: CreditCard },
-      { href: '/admin/companies',    label: '협약기업',   icon: Building2 },
-      { href: '/admin/bulk',         label: '일괄 업로드', icon: Upload },
-    ],
-  },
-  {
-    // 콘텐츠 (CMS) — 페이지 빌더 + 정적 페이지 + 공지·FAQ + 메뉴 + 미디어 통합 그룹.
-    // 레거시 '홈페이지 관리'(home_sections) 는 Phase 5 에서 제거됨.
-    label: '콘텐츠 (CMS)',
-    items: [
-      { href: '/admin/cms/builder/home', label: '페이지 빌더 (홈)',  icon: Blocks },
-      { href: '/admin/cms/builder/b2b',  label: '페이지 빌더 (B2B)', icon: LayoutTemplate },
-      { href: '/admin/pages',            label: '정적 페이지',       icon: FileText },
-      { href: '/admin/notices',          label: '공지사항',          icon: Bell },
-      { href: '/admin/faqs',             label: 'FAQ',               icon: HelpCircle },
-      { href: '/admin/contacts',         label: '이용문의',          icon: MessageSquare },
-      { href: '/admin/cms/menus',        label: '네비게이션',        icon: Navigation },
-      { href: '/admin/media',            label: '미디어 라이브러리', icon: ImageIcon },
-    ],
-  },
-  {
-    label: '시스템',
-    items: [
-      { href: '/admin/settings', label: '사이트 설정', icon: Settings },
-    ],
-  },
-]
 
 export default async function AdminLayout({
   children,
@@ -114,8 +39,11 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-surface-subtle">
-      {/* 사이드바 */}
+    <div className="flex min-h-screen flex-col bg-surface-subtle md:flex-row">
+      {/* 모바일 top bar + 드로어 — md 이상에선 자동 숨김 */}
+      <AdminMobileNav />
+
+      {/* 데스크탑 사이드바 — md 미만에선 숨김 */}
       <aside className="hidden w-64 shrink-0 border-r border-border-subtle bg-surface md:flex md:flex-col">
         {/* 로고 */}
         <div className="flex h-16 items-center border-b border-border-subtle px-5 text-navy">
@@ -153,7 +81,7 @@ export default async function AdminLayout({
 
       {/* 메인 콘텐츠 */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
       </div>
 
       {/* 전역 confirm 대체 다이얼로그 */}
