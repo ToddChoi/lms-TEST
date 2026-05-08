@@ -113,6 +113,9 @@ function BannerItemView({ b, style }: { b: BannerItem; style: React.CSSPropertie
       href={b.link_url}
       target={b.link_target === '_blank' ? '_blank' : undefined}
       rel={b.link_target === '_blank' ? 'noopener noreferrer' : undefined}
+      // ★ block 명시 — <Link> 는 기본 <a> = inline 이라 w-full / aspect-ratio 적용 안 됨.
+      // 이 누락이 배너가 자연 이미지 크기로 축소돼 작게 노출되던 원인.
+      className="block w-full"
     >
       {inner}
     </Link>
