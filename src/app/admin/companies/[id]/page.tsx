@@ -3,6 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { CompanyForm } from '@/components/admin/CompanyForm'
 import { CompanyMemberManager } from '@/components/admin/CompanyMemberManager'
+import { CompanyCollectionsManager } from '@/components/admin/CompanyCollectionsManager'
 import { DeleteCompanyButton } from './DeleteCompanyButton'
 
 export default async function CompanyDetailPage({ params }: { params: { id: string } }) {
@@ -87,6 +88,38 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
       <section>
         <h2 className="text-lg font-semibold text-[#0B1F3A] mb-3">회원 관리</h2>
         <CompanyMemberManager companyId={company.id} initialMembers={members} />
+      </section>
+
+      <section>
+        <h2 className="text-lg font-semibold text-[#0B1F3A] mb-3">강좌 큐레이션</h2>
+        <CompanyCollectionsManager companyId={company.id} />
+      </section>
+
+      <section>
+        <h2 className="text-lg font-semibold text-[#0B1F3A] mb-3">회사 전용 페이지</h2>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
+          <p className="text-sm text-gray-600">
+            이 회사 subdomain 진입자에게만 노출되는 홈/B2B 페이지를 별도로 편집할 수 있습니다.
+            기본 페이지는 모든 사용자에게 보이는 것과 분리됩니다.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link
+              href={`/admin/cms/builder/home?scope=company&company=${company.id}`}
+              className="rounded-md border border-accent bg-white px-3 py-1.5 text-sm font-semibold text-accent hover:bg-accent hover:text-white transition"
+            >
+              회사 전용 홈 빌더 →
+            </Link>
+            <Link
+              href={`/admin/cms/builder/b2b?scope=company&company=${company.id}`}
+              className="rounded-md border border-accent bg-white px-3 py-1.5 text-sm font-semibold text-accent hover:bg-accent hover:text-white transition"
+            >
+              회사 전용 B2B 빌더 →
+            </Link>
+          </div>
+          <p className="mt-3 text-xs text-gray-500">
+            ⓘ 회사 subdomain 셋업 후 활성화. 현재는 ?tenant={company.id} 쿼리로 시연 가능.
+          </p>
+        </div>
       </section>
     </div>
   )

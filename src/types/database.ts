@@ -777,6 +777,56 @@ export interface Database {
         }
         Update: Partial<Database['public']['Tables']['media_assets']['Insert']>
       }
+      // ─── Phase 4 R2: 회사 컬렉션 ─────────────────────
+      company_course_collections: {
+        Row: {
+          id: string
+          company_id: string
+          name: string
+          description: string | null
+          course_ids: string[]
+          sort_order: number
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          name: string
+          description?: string | null
+          course_ids?: string[]
+          sort_order?: number
+          is_active?: boolean
+        }
+        Update: Partial<Database['public']['Tables']['company_course_collections']['Insert']>
+      }
+      // ─── Phase 4 R2: 직무별 학습맵 ───────────────────
+      learning_paths: {
+        Row: {
+          id: string
+          company_id: string
+          name: string
+          description: string | null
+          target_role: string | null
+          target_level: string | null
+          course_ids: string[]
+          sort_order: number
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          name: string
+          description?: string | null
+          target_role?: string | null
+          target_level?: string | null
+          course_ids?: string[]
+          sort_order?: number
+          is_active?: boolean
+        }
+        Update: Partial<Database['public']['Tables']['learning_paths']['Insert']>
+      }
       // ─── Phase 1: translations — i18n fallback 패턴 ──
       translations: {
         Row: {
@@ -833,6 +883,8 @@ export type ContentBlock = Database['public']['Tables']['content_blocks']['Row']
 export type BlockType = Database['public']['Tables']['block_types']['Row']
 export type MediaAsset = Database['public']['Tables']['media_assets']['Row']
 export type Translation = Database['public']['Tables']['translations']['Row']
+export type CompanyCourseCollection = Database['public']['Tables']['company_course_collections']['Row']
+export type LearningPath = Database['public']['Tables']['learning_paths']['Row']
 
 // 확장 타입 (JOIN 결과)
 export type CourseWithCategory = Course & {
