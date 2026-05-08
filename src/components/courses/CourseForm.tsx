@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Button } from '@/components/ui/Button'
+import { RichEditor } from '@/components/ui/RichEditor'
 import { createClient } from '@/lib/supabase/client'
 import type { Category } from '@/types/database'
 import Image from 'next/image'
@@ -175,10 +176,9 @@ export function CourseForm({ categories, initialValues, mode }: CourseFormProps)
       </div>
 
       <Field label="강좌 소개">
-        <textarea
-          {...register('description')}
-          rows={4}
-          className={inputCls}
+        <RichEditor
+          value={watch('description') ?? ''}
+          onChange={(html) => setValue('description', html, { shouldDirty: true })}
           placeholder="강좌를 소개하는 내용을 입력하세요. 수강생이 이 강좌를 선택해야 하는 이유를 설명해주세요."
         />
       </Field>

@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { renderMarkdown } from '@/lib/markdown'
+import { sanitizeHtml } from '@/lib/sanitize'
 import type { Metadata } from 'next'
 
 interface Props {
@@ -62,10 +63,31 @@ export default async function StaticPage({ params }: Props) {
         </p>
       </header>
       <div
-        className="prose prose-sm max-w-none text-body text-navy/90"
-        // 운영자 작성 콘텐츠 — admin role 만 작성 가능 (RLS).
-        // 그러나 미래 WYSIWYG 도입 시 sanitize 필요. 현재는 markdown 렌더로 안전.
-        dangerouslySetInnerHTML={{ __html: renderMarkdown(page.body ?? '') }}
+        className={
+          'prose prose-sm max-w-none text-body text-navy/90 ' +
+          '[&_h2]:text-h3 [&_h2]:mt-6 [&_h2]:mb-3 [&_h2]:text-navy ' +
+          '[&_h3]:text-h4 [&_h3]:mt-5 [&_h3]:mb-2 [&_h3]:text-navy ' +
+          '[&_p]:my-3 [&_p]:leading-relaxed ' +
+          '[&_ul]:list-disc [&_ul]:pl-6 [&_ul]:my-3 [&_ul]:space-y-1 ' +
+          '[&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:my-3 [&_ol]:space-y-1 ' +
+          '[&_blockquote]:border-l-4 [&_blockquote]:border-accent/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-gray-600 ' +
+          '[&_a]:text-accent [&_a]:hover:underline ' +
+          '[&_code]:rounded [&_code]:bg-surface-muted [&_code]:px-1 [&_code]:text-caption ' +
+          '[&_pre]:rounded-md [&_pre]:bg-navy [&_pre]:p-3 [&_pre]:text-white [&_pre]:overflow-x-auto ' +
+          '[&_img]:rounded-md [&_img]:my-4 ' +
+          '[&_hr]:my-6 [&_hr]:border-border-subtle'
+        }
+        // pages.body 는 두 형식이 섞여 있을 수 있음:
+        //   1) RichEditor 가 만든 HTML — sanitize 후 그대로 렌더
+        //   2) 옛 markdown 문자열 — '<' 가 없으면 markdown 으로 간주, render 후 sanitize
+        // 단순 휴리스틱: '<' 포함이면 HTML, 아니면 markdown.
+        dangerouslySetInnerHTML={{
+          __html: sanitizeHtml(
+            (page.body ?? '').includes('<')
+              ? page.body ?? ''
+              : renderMarkdown(page.body ?? '')
+          )
+        }}
       />
     </article>
   )

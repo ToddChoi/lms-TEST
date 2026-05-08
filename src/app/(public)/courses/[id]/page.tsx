@@ -13,6 +13,24 @@ import {
   BookOpen, Clock, Users, Calendar, ChevronDown, User, PlayCircle,
 } from 'lucide-react'
 import { formatDuration, formatDate, isEnrollable } from '@/lib/utils'
+import { sanitizeHtml } from '@/lib/sanitize'
+
+/** 강좌 description 렌더용 — 옛 plain text + 새 HTML 호환. */
+function sanitizeHtmlForCourseDesc(s: string | null | undefined): string {
+  if (!s) return ''
+  // HTML 태그 없으면 plain text → <p> 로 감싸 줄바꿈만 유지
+  if (!/[<][a-z]/i.test(s)) {
+    return s.split(/\n\n+/).map((para) => {
+      const escaped = para
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\n/g, '<br/>')
+      return `<p>${escaped}</p>`
+    }).join('')
+  }
+  return sanitizeHtml(s)
+}
 import type { Metadata } from 'next'
 
 interface Props {
@@ -157,7 +175,22 @@ export default async function CourseDetailPage({ params }: Props) {
           </h1>
 
           {course.description && (
-            <p className="mt-3 text-gray-600 leading-relaxed">{course.description}</p>
+            // description 은 RichEditor 에서 HTML 로 저장 → sanitize 후 렌더.
+            // 옛 plain text 도 호환 (HTML 태그 없으면 그대로 노출).
+            <div
+              className={
+                'mt-3 text-gray-600 leading-relaxed ' +
+                '[&_h2]:text-h4 [&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:text-navy ' +
+                '[&_h3]:text-body [&_h3]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1 [&_h3]:text-navy ' +
+                '[&_p]:my-2 ' +
+                '[&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2 ' +
+                '[&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2 ' +
+                '[&_a]:text-accent [&_a]:hover:underline ' +
+                '[&_strong]:text-navy ' +
+                '[&_blockquote]:border-l-4 [&_blockquote]:border-accent/30 [&_blockquote]:pl-3 [&_blockquote]:italic'
+              }
+              dangerouslySetInnerHTML={{ __html: sanitizeHtmlForCourseDesc(course.description) }}
+            />
           )}
 
           {/* 메타 정보 */}

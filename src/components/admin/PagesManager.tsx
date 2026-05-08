@@ -7,6 +7,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Trash2, Eye, EyeOff, ExternalLink, Pencil } from 'lucide-react'
+import { RichEditor } from '@/components/ui/RichEditor'
 
 interface PageRow {
   id: string
@@ -224,17 +225,17 @@ function PageEditor({ mode, page, onClose, onSaved }: EditorProps) {
             />
           </div>
           <div>
-            <label className="block text-caption font-semibold text-navy">본문 (markdown 또는 plain text)</label>
-            <textarea
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              rows={14}
-              className="mt-0.5 w-full rounded-md border border-border-subtle bg-surface px-3 py-2 font-mono text-body-sm focus:border-accent focus:outline-none"
-              placeholder="# 제목&#10;&#10;본문 내용..."
-            />
+            <label className="block text-caption font-semibold text-navy">본문</label>
+            <div className="mt-0.5">
+              <RichEditor
+                value={body}
+                onChange={setBody}
+                placeholder="페이지 내용을 입력하세요..."
+              />
+            </div>
             <p className="mt-1 text-micro text-gray-500">
-              ## 헤딩, **굵게**, *기울임*, [링크](url), - 목록, &gt; 인용 등 기본 markdown 지원.
-              WYSIWYG 은 다음 라운드.
+              헤딩 / 굵게 / 기울임 / 링크 / 이미지 / 리스트 / 인용 / 코드 지원.
+              저장된 HTML 은 공개 페이지에서 sanitize 후 렌더됩니다.
             </p>
           </div>
           <div>
