@@ -18,6 +18,31 @@ export type ContactType = 'general' | 'b2b' | 'course' | 'technical'
 export type CourseBadge = 'none' | 'new' | 'best' | 'discount' | 'hot'
 export type PaymentStatus = 'pending' | 'succeeded' | 'failed' | 'refunded'
 export type RecommendationContext = 'dashboard' | 'similar' | 'next_step' | 'course_list'
+
+// ─── Phase 6: 수료증 템플릿 element schema ──────────
+export type CertElement =
+  | {
+      id: string; type: 'text'
+      x: number; y: number; w: number; h: number
+      content: string                 // {{placeholder}} 치환 가능
+      font_size: number
+      font_weight?: 'normal' | 'bold'
+      color?: string
+      align?: 'left' | 'center' | 'right'
+    }
+  | {
+      id: string; type: 'image'
+      x: number; y: number; w: number; h: number
+      url: string
+      opacity?: number
+    }
+  | {
+      id: string; type: 'rect'
+      x: number; y: number; w: number; h: number
+      fill?: string
+      border?: string                 // '1px solid #...'
+      radius?: number
+    }
 // Phase 1 — multi-tenant + page builder + i18n
 export type CmsScope = 'global' | 'company'
 export type PageStatus = 'draft' | 'published'
@@ -243,14 +268,47 @@ export interface Database {
           cert_number: string
           issued_at: string
           pdf_url: string | null
+          template_id: string | null
         }
         Insert: {
           user_id: string
           course_id: string
           cert_number: string
           pdf_url?: string | null
+          template_id?: string | null
         }
-        Update: { pdf_url?: string | null }
+        Update: { pdf_url?: string | null; template_id?: string | null }
+      }
+      // Phase 6 수료증 템플릿
+      certificate_templates: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          page_size: 'A4' | 'letter'
+          page_orientation: 'landscape' | 'portrait'
+          background_url: string | null
+          background_color: string
+          elements: CertElement[]
+          is_default: boolean
+          scope_type: CmsScope
+          company_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          name: string
+          description?: string | null
+          page_size?: 'A4' | 'letter'
+          page_orientation?: 'landscape' | 'portrait'
+          background_url?: string | null
+          background_color?: string
+          elements?: CertElement[]
+          is_default?: boolean
+          scope_type?: CmsScope
+          company_id?: string | null
+        }
+        Update: Partial<Database['public']['Tables']['certificate_templates']['Insert']>
       }
       notices: {
         Row: {
@@ -885,6 +943,7 @@ export type MediaAsset = Database['public']['Tables']['media_assets']['Row']
 export type Translation = Database['public']['Tables']['translations']['Row']
 export type CompanyCourseCollection = Database['public']['Tables']['company_course_collections']['Row']
 export type LearningPath = Database['public']['Tables']['learning_paths']['Row']
+export type CertificateTemplate = Database['public']['Tables']['certificate_templates']['Row']
 
 // 확장 타입 (JOIN 결과)
 export type CourseWithCategory = Course & {

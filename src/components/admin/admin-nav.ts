@@ -56,7 +56,8 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/admin/users',        label: '회원 관리',  icon: Users },
       { href: '/admin/enrollments',  label: '수강 신청',  icon: ClipboardList },
-      { href: '/admin/certificates', label: '수료증',     icon: Award },
+      { href: '/admin/certificates', label: '수료증',           icon: Award },
+      { href: '/admin/certificates/templates', label: '수료증 템플릿', icon: FileText },
       { href: '/admin/payments',     label: '결제 내역',  icon: CreditCard },
       { href: '/admin/companies',    label: '협약기업',   icon: Building2 },
       { href: '/admin/bulk',         label: '일괄 업로드', icon: Upload },
