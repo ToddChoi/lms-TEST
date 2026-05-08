@@ -47,10 +47,16 @@ export function BannerBlock({ config }: BlockProps<BannerConfig>) {
   if (layout === 'grid' || layout === 'slider') {
     const fallback = layout === 'grid' ? '16/9' : '21/9'
     const style = computeAspectStyle(config, fallback)
+    // 항목 수에 따라 컬럼 자동 — 1개면 full, 2개면 2열, 3+ 면 3열.
+    // 이전 고정 3열 → 1개 항목이 1/3 폭으로 작아 보이던 문제 해결.
+    const colsClass =
+      items.length === 1 ? 'grid-cols-1' :
+      items.length === 2 ? 'grid-cols-1 sm:grid-cols-2' :
+                            'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
     return (
       <section className="bg-surface py-8">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className={`grid gap-4 ${colsClass}`}>
             {items.map((b, i) => (
               <BannerItemView key={i} b={b} style={style} />
             ))}
