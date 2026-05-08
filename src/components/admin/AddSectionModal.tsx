@@ -50,7 +50,7 @@ export default function AddSectionModal({ onClose, onAdd }: Props) {
 
         <div>
           <p className="text-sm font-medium text-gray-700 mb-3">섹션 타입을 선택하세요</p>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {SECTION_TYPES.map((t) => (
               <button
                 key={t.type}

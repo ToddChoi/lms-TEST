@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import ContactManager, { type Contact } from '@/components/admin/ContactManager'
 import type { Metadata } from 'next'
@@ -24,7 +24,7 @@ export default async function AdminContactsPage() {
   const pendingCount = (contacts ?? []).filter((c) => c.status === 'pending').length
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-[#0B1F3A]">이용문의 관리</h1>

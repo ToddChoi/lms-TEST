@@ -98,7 +98,7 @@ export default async function OrgEnrollmentsPage({
   const statuses = ['', 'active', 'completed', 'expired', 'cancelled']
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       <h1 className="text-2xl font-bold text-[#0B1F3A] mb-2">수강 현황</h1>
       <p className="text-sm text-gray-500 mb-6">총 {enrolls.length}건</p>
 

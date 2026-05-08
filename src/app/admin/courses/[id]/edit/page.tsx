@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import { notFound, redirect } from 'next/navigation'
 import { CourseEditTabs } from '@/components/admin/CourseEditTabs'
 import Link from 'next/link'
@@ -46,7 +46,7 @@ export default async function EditCoursePage({ params }: Props) {
   }))
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       {/* 브레드크럼 */}
       <div className="flex items-center gap-2 mb-5 text-sm text-gray-400">
         <Link href="/admin/courses" className="hover:text-gray-600 transition">강좌 관리</Link>

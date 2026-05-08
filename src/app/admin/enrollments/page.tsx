@@ -89,7 +89,7 @@ export default async function AdminEnrollmentsPage({
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-[#0B1F3A]">수강 신청 현황</h1>
         <span className="text-sm text-gray-500">총 {count ?? 0}건</span>
@@ -101,7 +101,7 @@ export default async function AdminEnrollmentsPage({
           name="q"
           defaultValue={q}
           placeholder="수강자 또는 강좌명 검색"
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-[#2D7DD2]"
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-[#2D7DD2]"
         />
         <select
           name="status"

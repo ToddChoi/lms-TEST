@@ -314,7 +314,7 @@ function EnrollmentsForm({ courses }: { courses: Course[] }) {
       </button>
 
       {result && (
-        <div className="mt-5 border-t border-gray-100 pt-4 text-sm grid grid-cols-3 gap-3">
+        <div className="mt-5 border-t border-gray-100 pt-4 text-sm grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="bg-green-50 rounded-lg p-3">
             <p className="text-xs text-gray-500">성공</p>
             <p className="text-xl font-bold text-green-700">{result.success}</p>

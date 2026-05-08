@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import CategoryManager, { type Category } from '@/components/admin/CategoryManager'
 import type { Metadata } from 'next'
@@ -21,7 +21,7 @@ export default async function AdminCategoriesPage() {
   const categories = (rawCategories as unknown as Category[] | null) ?? []
 
   return (
-    <div className="p-8 max-w-4xl">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-4xl">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-[#0B1F3A]">카테고리 관리</h1>

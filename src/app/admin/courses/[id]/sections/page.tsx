@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import SectionManager, { type Section } from '@/components/admin/SectionManager'
@@ -49,7 +49,7 @@ export default async function CourseSectionsPage({
   }))
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       <div className="flex items-center gap-4 mb-2">
         <Link href="/admin/courses" className="text-gray-400 hover:text-gray-600 transition text-sm">
           ← 강좌 목록

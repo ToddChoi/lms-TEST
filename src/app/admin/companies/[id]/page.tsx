@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { CompanyForm } from '@/components/admin/CompanyForm'
@@ -55,7 +55,7 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
   }))
 
   return (
-    <div className="p-8 flex flex-col gap-8">
+    <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-8">
       <div className="flex items-center justify-between">
         <div>
           <Link href="/admin/companies" className="text-sm text-[#2D7DD2] hover:underline">

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 
@@ -109,7 +109,7 @@ export default function AdminSettingsPage() {
 
   if (loading) {
     return (
-      <div className="p-8 flex items-center justify-center min-h-64">
+      <div className="p-4 sm:p-6 lg:p-8 flex items-center justify-center min-h-64">
         <div className="animate-spin h-8 w-8 border-4 border-[#2D7DD2] border-t-transparent rounded-full" />
       </div>
     )
@@ -119,7 +119,7 @@ export default function AdminSettingsPage() {
     'border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-[#2D7DD2]'
 
   return (
-    <div className="p-8 max-w-2xl">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-2xl">
       {toast && (
         <div
           className={`fixed top-6 right-6 px-5 py-3 rounded-xl shadow-lg z-50 text-sm font-medium transition ${

@@ -72,7 +72,7 @@ export default function ContactManager({ initialContacts }: Props) {
   }
 
   return (
-    <div className="flex gap-6 h-full">
+    <div className="flex flex-col lg:flex-row gap-6 h-full">
       {/* Left: list */}
       <div className="flex-1 min-w-0">
         {/* Filter tabs */}
@@ -141,7 +141,7 @@ export default function ContactManager({ initialContacts }: Props) {
 
       {/* Right: detail panel */}
       {selected && (
-        <div className="w-96 shrink-0 bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col gap-4 self-start sticky top-0">
+        <div className="w-full lg:w-96 lg:shrink-0 bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col gap-4 self-start lg:sticky lg:top-0">
           <div className="flex items-start justify-between">
             <h3 className="font-semibold text-[#0B1F3A] leading-snug">{selected.title}</h3>
             <button

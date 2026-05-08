@@ -105,7 +105,7 @@ export default function UserDetailPage() {
 
   if (loading) {
     return (
-      <div className="p-8 flex items-center justify-center min-h-64">
+      <div className="p-4 sm:p-6 lg:p-8 flex items-center justify-center min-h-64">
         <div className="animate-spin h-8 w-8 border-4 border-[#2D7DD2] border-t-transparent rounded-full" />
       </div>
     )
@@ -113,14 +113,14 @@ export default function UserDetailPage() {
 
   if (!profile) {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-6 lg:p-8">
         <p className="text-gray-500">회원을 찾을 수 없습니다.</p>
       </div>
     )
   }
 
   return (
-    <div className="p-8 max-w-4xl">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-4xl">
       {toast && (
         <div className="fixed top-6 right-6 bg-[#0B1F3A] text-white px-5 py-3 rounded-xl shadow-lg z-50 text-sm">
           {toast}
@@ -140,7 +140,7 @@ export default function UserDetailPage() {
       {/* Profile Card */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
         <h2 className="text-lg font-semibold text-[#0B1F3A] mb-4">기본 정보</h2>
-        <div className="grid grid-cols-2 gap-4 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <div>
             <span className="text-gray-500 block mb-1">이름</span>
             <span className="font-medium text-[#0B1F3A]">{profile.name ?? '-'}</span>

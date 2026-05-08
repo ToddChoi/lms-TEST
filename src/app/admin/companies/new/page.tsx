@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { CompanyForm } from '@/components/admin/CompanyForm'
 
@@ -11,7 +11,7 @@ export default async function NewCompanyPage() {
   if (!profile || !['admin', 'superadmin'].includes(profile.role)) redirect('/')
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       <h1 className="text-2xl font-bold text-[#0B1F3A] mb-6">새 기업 등록</h1>
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 max-w-2xl">
         <CompanyForm mode="create" />

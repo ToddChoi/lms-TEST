@@ -59,7 +59,7 @@ export default async function OrgMembersPage({
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       <h1 className="text-2xl font-bold text-[#0B1F3A] mb-2">기업 회원</h1>
       <p className="text-sm text-gray-500 mb-6">총 {members.length}명</p>
 
@@ -68,7 +68,7 @@ export default async function OrgMembersPage({
           name="q"
           defaultValue={q}
           placeholder="이름 또는 이메일 검색"
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-[#2D7DD2]"
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-[#2D7DD2]"
         />
         <button
           type="submit"

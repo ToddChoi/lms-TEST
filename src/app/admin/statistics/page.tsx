@@ -152,7 +152,7 @@ export default async function AdminStatisticsPage() {
   const completionPieData = Object.entries(statusCounts).map(([name, value]) => ({ name, value }))
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       <h1 className="text-2xl font-bold text-[#0B1F3A] mb-6">통계 대시보드</h1>
 
       {/* KPI Cards */}

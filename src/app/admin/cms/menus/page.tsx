@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import CmsMenuManager, { type CmsNavMenu } from '@/components/admin/CmsMenuManager'
 import type { Metadata } from 'next'
@@ -23,7 +23,7 @@ export default async function AdminCmsMenusPage() {
   const menus = (rawMenus as unknown as CmsNavMenu[] | null) ?? []
 
   return (
-    <div className="p-8 max-w-4xl">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-4xl">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-[#0B1F3A]">네비게이션 관리</h1>
         <p className="text-sm text-gray-500 mt-1">헤더와 푸터에 노출할 메뉴를 관리합니다. 변경 사항은 즉시 공개 페이지에 반영됩니다.</p>
