@@ -208,9 +208,18 @@ export default async function CoursesPage({ searchParams }: Props) {
         <div>
           {courses.length > 0 ? (
             <>
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
-                {courses.map((c) => <CourseCardV2 key={c.id} course={c} />)}
-              </div>
+              {/* P2.1 — view 토글 실제 적용. list = horizontal variant 한 열. */}
+              {searchParams.view === 'list' ? (
+                <div className="flex flex-col gap-3">
+                  {courses.map((c) => (
+                    <CourseCardV2 key={c.id} course={c} variant="horizontal" />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+                  {courses.map((c) => <CourseCardV2 key={c.id} course={c} />)}
+                </div>
+              )}
 
               <div className="mt-10">
                 <Suspense>

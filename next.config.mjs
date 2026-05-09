@@ -32,9 +32,11 @@ const nextConfig = {
     const csp = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://*.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com",
-      "style-src 'self' 'unsafe-inline'",
+      // style-src: Google Fonts CSS (fonts.googleapis.com) 도 stylesheet 로 fetch 됨
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: blob: https://*.supabase.co https://images.unsplash.com https://i.ytimg.com https://*.vimeocdn.com",
-      "font-src 'self' data:",
+      // font-src: Google Fonts woff2 (fonts.gstatic.com) — enforcement 시 막히지 않게 명시
+      "font-src 'self' data: https://fonts.gstatic.com",
       "media-src 'self' blob: https://*.supabase.co",
       "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com",
       "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://*.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com",

@@ -18,10 +18,26 @@ const loginSchema = z.object({
 
 type LoginForm = z.infer<typeof loginSchema>
 
+/**
+ * 외부 URL / 위험한 스킴 차단 — 내부 path 만 허용.
+ *  허용: /my, /courses/123, /my/courses/[id]/learn?lesson=xxx
+ *  차단: //evil.com (protocol-relative), https://x, javascript:, data:, ../...
+ */
+function safeRedirect(input: string | null | undefined): string {
+  if (!input) return '/my'
+  // 내부 path 만 허용 — '/' 로 시작 + 다음 글자가 '/' 가 아닌 (protocol-relative 차단)
+  if (!/^\/(?!\/)/.test(input)) return '/my'
+  // backslash trick (\evil.com) 도 차단
+  if (input.includes('\\')) return '/my'
+  // 길이 가드
+  if (input.length > 500) return '/my'
+  return input
+}
+
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const redirectTo = searchParams.get('redirectTo') || '/my'
+  const redirectTo = safeRedirect(searchParams.get('redirectTo'))
   const [serverError, setServerError] = useState<string | null>(null)
 
   const {

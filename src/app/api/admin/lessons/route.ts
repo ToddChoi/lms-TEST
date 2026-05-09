@@ -62,10 +62,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'section_id와 title은 필수입니다.' }, { status: 400 })
   }
 
+  // ★ P1.2 — lessons.course_id 도 INSERT.
+  // 기존 코드는 section_id 만 저장 → RLS 정책(course_id 기반) / 진도율 계산 /
+  // 잠긴 강의 조회가 silent 로 어긋나던 버그.
+  const courseId = await getCourseIdBySection(section_id)
+  if (!courseId) {
+    return NextResponse.json({ error: '존재하지 않는 section_id 입니다.' }, { status: 400 })
+  }
+
   const { data: rawLesson, error } = await (supabase as any)
     .from('lessons')
     .insert({
       section_id,
+      course_id: courseId,
       title,
       video_url: video_url ?? null,
       duration: typeof duration === 'number' ? duration : 0,
@@ -77,9 +86,7 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // total_duration 재계산
-  const courseId = await getCourseIdBySection(section_id)
-  if (courseId) await recalcCourseDuration(courseId)
+  await recalcCourseDuration(courseId)
 
   return NextResponse.json({ lesson: rawLesson })
 }
