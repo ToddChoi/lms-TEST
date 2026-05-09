@@ -15,7 +15,7 @@
  *   letter ld     = 792 × 612 pt
  *   letter pt     = 612 × 792 pt
  */
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, ChevronUp, ChevronDown, Trash2, Save, ArrowLeft, Type, Image as ImageIcon, Square } from 'lucide-react'
 import Link from 'next/link'
@@ -107,6 +107,11 @@ export function CertTemplateEditor({ mode, initial }: Props) {
     if (!selectedId) return
     setElements((arr) => arr.map((e) =>
       e.id === selectedId ? ({ ...e, ...patch } as CertElement) : e
+    ))
+  }
+  const updateById = (id: string, patch: Partial<CertElement>) => {
+    setElements((arr) => arr.map((e) =>
+      e.id === id ? ({ ...e, ...patch } as CertElement) : e
     ))
   }
   const removeSelected = () => {
@@ -327,6 +332,7 @@ export function CertTemplateEditor({ mode, initial }: Props) {
               elements={elements}
               selectedId={selectedId}
               onSelect={setSelectedId}
+              onUpdate={updateById}
               data={SAMPLE_DATA}
             />
           </div>
@@ -475,9 +481,40 @@ function shortText(s: string): string {
   return t.length > 14 ? t.slice(0, 14) + '…' : t
 }
 
-// ─── Preview canvas ──────────────────────────────────
+// ─── Preview canvas (drag + resize) ──────────────────
+//
+// 동작:
+//   - 요소 클릭 → 선택 (좌측 폼이 그 요소 표시)
+//   - 요소 드래그 → 위치 (X, Y) 변경
+//   - 선택된 요소 우하단 핸들 드래그 → 크기 (W, H) 변경
+//   - 모든 변경은 0.25pt 단위 round (Snap), 페이지 경계 클램프
+//   - 변경은 onUpdate 콜백으로 즉시 반영 (좌측 X/Y/W/H 폼도 동기 갱신)
+//
+// 스케일링:
+//   화면상 px → pt 환산. (px / scale = pt). 드래그 deltaX/deltaY 도 동일 스케일링.
+//   고밀도 디스플레이는 movementX/Y 가 device px 라 일관성 위해 clientX 기준 차이로.
+//
+// 키보드 — 향후: 화살표 키로 1pt 단위 미세 이동.
+
+interface DragState {
+  kind: 'move' | 'resize-br'
+  id: string
+  startMouseX: number
+  startMouseY: number
+  startEl: { x: number; y: number; w: number; h: number }
+}
+
+const SNAP_PT = 0.5    // pt 단위 — 너무 큰 snap 은 미세 조정 어렵게 함
+
+function snap(v: number): number {
+  return Math.round(v / SNAP_PT) * SNAP_PT
+}
+function clamp(v: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, v))
+}
+
 function Preview({
-  dims, bgColor, bgUrl, elements, selectedId, onSelect, data,
+  dims, bgColor, bgUrl, elements, selectedId, onSelect, onUpdate, data,
 }: {
   dims: { w: number; h: number }
   bgColor: string
@@ -485,10 +522,56 @@ function Preview({
   elements: CertElement[]
   selectedId: string | null
   onSelect: (id: string) => void
+  onUpdate: (id: string, patch: Partial<CertElement>) => void
   data: CertData
 }) {
-  // 화면에 맞게 자동 스케일 — 최대 1200px 너비
   const [scale, setScale] = useState(1)
+  const dragRef = useRef<DragState | null>(null)
+
+  // pointer move/up 은 document 레벨 — 요소 밖으로 빠르게 움직여도 추적 안 끊김
+  useEffect(() => {
+    function onMove(e: PointerEvent) {
+      const drag = dragRef.current
+      if (!drag) return
+      const dxPt = (e.clientX - drag.startMouseX) / scale
+      const dyPt = (e.clientY - drag.startMouseY) / scale
+
+      if (drag.kind === 'move') {
+        const nx = clamp(snap(drag.startEl.x + dxPt), 0, dims.w - drag.startEl.w)
+        const ny = clamp(snap(drag.startEl.y + dyPt), 0, dims.h - drag.startEl.h)
+        onUpdate(drag.id, { x: nx, y: ny } as Partial<CertElement>)
+      } else if (drag.kind === 'resize-br') {
+        const nw = clamp(snap(drag.startEl.w + dxPt), 8, dims.w - drag.startEl.x)
+        const nh = clamp(snap(drag.startEl.h + dyPt), 8, dims.h - drag.startEl.y)
+        onUpdate(drag.id, { w: nw, h: nh } as Partial<CertElement>)
+      }
+    }
+    function onUp() {
+      dragRef.current = null
+      document.body.style.userSelect = ''
+      document.body.style.cursor = ''
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+  }, [scale, dims.w, dims.h, onUpdate])
+
+  function startDrag(e: React.PointerEvent, kind: DragState['kind'], el: CertElement) {
+    e.preventDefault()
+    e.stopPropagation()
+    onSelect(el.id)
+    dragRef.current = {
+      kind, id: el.id,
+      startMouseX: e.clientX, startMouseY: e.clientY,
+      startEl: { x: el.x, y: el.y, w: el.w, h: el.h },
+    }
+    document.body.style.userSelect = 'none'
+    document.body.style.cursor = kind === 'move' ? 'grabbing' : 'nwse-resize'
+  }
+
   return (
     <div>
       <div className="mb-2 flex items-center gap-2">
@@ -496,9 +579,10 @@ function Preview({
         <input type="range" min={0.4} max={1} step={0.05} value={scale} onChange={(e) => setScale(Number(e.target.value))}
           className="flex-1 max-w-[200px]" />
         <span className="text-caption text-gray-500">{Math.round(scale * 100)}%</span>
+        <span className="text-micro text-gray-400">Tip: 요소를 드래그해 이동, 우하단 핸들로 크기 조정</span>
       </div>
       <div
-        className="relative overflow-hidden rounded-md shadow-elev-2"
+        className="relative overflow-hidden rounded-md shadow-elev-2 select-none"
         style={{
           width: dims.w * scale,
           height: dims.h * scale,
@@ -506,6 +590,11 @@ function Preview({
           backgroundImage: bgUrl ? `url(${bgUrl})` : undefined,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
+        }}
+        onPointerDown={(e) => {
+          // 빈 캔버스 클릭 → 선택 해제는 안 함 (원치 않는 deselect 방지)
+          // 다만 stopPropagation 도 안 해서 자식 요소 클릭은 정상 동작
+          void e
         }}
       >
         {elements.map((el) => {
@@ -518,42 +607,61 @@ function Preview({
             height: el.h * scale,
             outline: isSel ? '2px solid #2D7DD2' : 'none',
             outlineOffset: 1,
-            cursor: 'pointer',
+            cursor: dragRef.current?.id === el.id ? 'grabbing' : 'grab',
+            touchAction: 'none',                // 모바일 스크롤 충돌 방지
           }
+
+          let inner: React.ReactNode = null
           if (el.type === 'rect') {
-            return (
-              <div key={el.id} onClick={() => onSelect(el.id)} style={{
-                ...base,
-                backgroundColor: el.fill ?? 'transparent',
-                borderRadius: (el.radius ?? 0) * scale,
-                border: el.border ?? undefined,
-              }} />
+            base.backgroundColor = el.fill ?? 'transparent'
+            base.borderRadius = (el.radius ?? 0) * scale
+            base.border = el.border ?? undefined
+          } else if (el.type === 'image') {
+            base.opacity = el.opacity ?? 1
+            inner = el.url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={el.url} alt="" draggable={false}
+                style={{ width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none' }} />
+            ) : (
+              <div style={{ width: '100%', height: '100%', background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#999' }}>이미지</div>
             )
+          } else {
+            base.fontSize = el.font_size * scale
+            base.fontWeight = el.font_weight ?? 'normal'
+            base.color = el.color ?? '#0B1F3A'
+            base.textAlign = el.align ?? 'left'
+            base.lineHeight = 1.2
+            base.overflow = 'hidden'
+            base.whiteSpace = 'pre-wrap'
+            inner = substitute(el.content, data)
           }
-          if (el.type === 'image') {
-            return (
-              <div key={el.id} onClick={() => onSelect(el.id)} style={{ ...base, opacity: el.opacity ?? 1 }}>
-                {el.url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={el.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                ) : (
-                  <div style={{ width: '100%', height: '100%', background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#999' }}>이미지</div>
-                )}
-              </div>
-            )
-          }
+
           return (
-            <div key={el.id} onClick={() => onSelect(el.id)} style={{
-              ...base,
-              fontSize: el.font_size * scale,
-              fontWeight: el.font_weight ?? 'normal',
-              color: el.color ?? '#0B1F3A',
-              textAlign: el.align ?? 'left',
-              lineHeight: 1.2,
-              overflow: 'hidden',
-              whiteSpace: 'pre-wrap',
-            }}>
-              {substitute(el.content, data)}
+            <div
+              key={el.id}
+              onPointerDown={(e) => startDrag(e, 'move', el)}
+              style={base}
+            >
+              {inner}
+              {/* 선택된 요소만 우하단 리사이즈 핸들 노출 */}
+              {isSel && (
+                <div
+                  onPointerDown={(e) => startDrag(e, 'resize-br', el)}
+                  style={{
+                    position: 'absolute',
+                    right: -6,
+                    bottom: -6,
+                    width: 12,
+                    height: 12,
+                    background: '#2D7DD2',
+                    border: '2px solid white',
+                    borderRadius: 2,
+                    cursor: 'nwse-resize',
+                    touchAction: 'none',
+                  }}
+                  title="크기 조정"
+                />
+              )}
             </div>
           )
         })}
