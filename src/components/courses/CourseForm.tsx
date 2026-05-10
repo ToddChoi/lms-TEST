@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/Button'
 import { RichEditor } from '@/components/ui/RichEditor'
 import { createClient } from '@/lib/supabase/client'
 import type { Category } from '@/types/database'
-import Image from 'next/image'
 
 const schema = z.object({
   title: z.string().min(2, '강좌명은 2자 이상이어야 합니다.'),

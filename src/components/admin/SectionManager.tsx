@@ -47,25 +47,6 @@ function getYoutubeId(url: string): string | null {
   return null
 }
 
-function YoutubeThumbnail({ url }: { url: string }) {
-  const vid = getYoutubeId(url)
-  if (!vid) return null
-  return (
-    <div className="relative w-24 h-14 rounded overflow-hidden flex-shrink-0 bg-black group cursor-pointer"
-      onClick={() => window.open(`https://www.youtube.com/watch?v=${vid}`, '_blank')}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={`https://img.youtube.com/vi/${vid}/mqdefault.jpg`}
-        alt=""
-        className="w-full h-full object-cover"
-      />
-      <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition">
-        <PlayCircle className="w-6 h-6 text-white" />
-      </div>
-    </div>
-  )
-}
-
 function formatSeconds(sec: number): string {
   const m = Math.floor(sec / 60)
   const s = sec % 60

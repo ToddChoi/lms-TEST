@@ -1,4 +1,5 @@
-import { Document, Page, Text, View, Image, StyleSheet, Font } from '@react-pdf/renderer'
+/* eslint-disable jsx-a11y/alt-text -- @react-pdf/renderer Image is PDF, not HTML img */
+import { Document, Page, Text, View, Image, Font } from '@react-pdf/renderer'
 import path from 'path'
 import { substitute, type CertData } from '@/lib/cert-render'
 import type { CertElement } from '@/types/database'

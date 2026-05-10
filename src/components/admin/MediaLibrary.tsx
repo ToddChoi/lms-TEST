@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import Image from 'next/image'
 import { Upload, Trash2, Copy, CheckCircle } from 'lucide-react'
 
 interface MediaAsset {

@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import {
-  LayoutDashboard, BookOpen, Users, GraduationCap,
+  LayoutDashboard, BookOpen, GraduationCap,
 } from 'lucide-react'
 import type { Metadata } from 'next'
 

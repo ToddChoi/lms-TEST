@@ -17,7 +17,7 @@
  */
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, ChevronUp, ChevronDown, Trash2, Save, ArrowLeft, Type, Image as ImageIcon, Square } from 'lucide-react'
+import { ChevronUp, ChevronDown, Trash2, Save, ArrowLeft, Type, Image as ImageIcon, Square } from 'lucide-react'
 import Link from 'next/link'
 import { ImagePicker } from './ImagePicker'
 import { substitute, type CertData } from '@/lib/cert-render'

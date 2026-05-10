@@ -5,7 +5,7 @@
  * PageBuilder 의 image field 에서 사용.
  */
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { X, Upload, Search } from 'lucide-react'
+import { X, Upload } from 'lucide-react'
 
 interface Asset {
   id: string

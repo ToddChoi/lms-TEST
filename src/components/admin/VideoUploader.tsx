@@ -132,7 +132,7 @@ export function VideoUploader({ courseId, value, onChange, onDurationDetected }:
     onChange(path)
     setProgress(100)
     setUploading(false)
-  }, [courseId, onChange])
+  }, [courseId, onChange, onDurationDetected])
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
