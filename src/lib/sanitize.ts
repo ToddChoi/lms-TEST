@@ -32,3 +32,22 @@ export function sanitizeHtml(html: string | null | undefined): string {
   if (!html) return ''
   return sanitize(html, OPTIONS)
 }
+
+/**
+ * <script>...</script> 안에 JSON 을 박을 때 사용 (e.g., schema.org LD+JSON).
+ * JSON.stringify 자체는 `<` 를 escape 하지 않으므로 데이터에 `</script>` 가 있으면
+ * 브라우저가 script 를 조기 종료하고 다음 텍스트를 HTML 로 파싱 → XSS.
+ *
+ * `<`, `>`, `&` 와 JS 파서가 거부하는 line/paragraph separator (U+2028/2029) 까지
+ * 모두 unicode escape — JSON spec 안에 머물면서 안전.
+ */
+export function safeScriptJson(value: unknown): string {
+  const LINE_SEP = String.fromCharCode(0x2028)
+  const PARA_SEP = String.fromCharCode(0x2029)
+  return JSON.stringify(value)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+    .split(LINE_SEP).join('\\u2028')
+    .split(PARA_SEP).join('\\u2029')
+}

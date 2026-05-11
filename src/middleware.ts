@@ -89,9 +89,11 @@ export async function middleware(request: NextRequest) {
   }
 
   // 마이페이지 — 로그인 필요
-  // 단, /my/courses/[id]/learn 은 미리보기 레슨용으로 비로그인 허용 (페이지 내부에서 처리)
+  // 단, /my/courses/[id]/learn 은 미리보기 레슨용으로 비로그인 허용 (페이지 내부에서 처리).
+  // 정규식은 정확히 그 path 만 매치 — 끝에 '$' 마커로 prefix bypass 차단.
+  // (예: /my/courses/foo/learn-bypass, /my/courses/foo/learn/extra 같은 변종)
   if (pathname.startsWith('/my')) {
-    const isLearnPage = /^\/my\/courses\/[^/]+\/learn/.test(pathname)
+    const isLearnPage = /^\/my\/courses\/[^/]+\/learn$/.test(pathname)
     if (!user && !isLearnPage) {
       return NextResponse.redirect(
         new URL(`/login?redirectTo=${pathname}`, request.url)

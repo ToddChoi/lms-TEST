@@ -13,7 +13,7 @@ import {
   BookOpen, Clock, Users, Calendar, ChevronDown, User, PlayCircle,
 } from 'lucide-react'
 import { formatDuration, formatDate, isEnrollable } from '@/lib/utils'
-import { sanitizeHtml } from '@/lib/sanitize'
+import { sanitizeHtml, safeScriptJson } from '@/lib/sanitize'
 
 /** 강좌 description 렌더용 — 옛 plain text + 새 HTML 호환. */
 function sanitizeHtmlForCourseDesc(s: string | null | undefined): string {
@@ -142,7 +142,7 @@ export default async function CourseDetailPage({ params }: Props) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: safeScriptJson({
             '@context': 'https://schema.org',
             '@type': 'Course',
             name: course.title,
