@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { CourseCardV2, type CourseCardV2Data } from '@/components/courses/CourseCardV2'
 import { CourseFilter } from '@/components/courses/CourseFilter'
 import { CourseFilterSidebar } from '@/components/courses/CourseFilterSidebar'
+import { CourseFilterMobile } from '@/components/courses/CourseFilterMobile'
+import { ActiveFilterChips } from '@/components/courses/ActiveFilterChips'
 import { Pagination } from '@/components/ui/Pagination'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { BookOpen } from 'lucide-react'
@@ -194,6 +196,14 @@ export default async function CoursesPage({ searchParams }: Props) {
 
       <Suspense>
         <CourseFilter categories={categories ?? []} totalCount={count ?? 0} />
+      </Suspense>
+
+      {/* 모바일 상세 필터 trigger + 활성 필터 칩 — 데스크탑에선 좌측 사이드바가 노출 */}
+      <Suspense>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <CourseFilterMobile totalCount={count ?? 0} />
+          <ActiveFilterChips />
+        </div>
       </Suspense>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[220px_1fr]">
