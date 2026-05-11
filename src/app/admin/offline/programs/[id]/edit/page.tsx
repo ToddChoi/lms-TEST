@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Calendar } from 'lucide-react'
 import { ProgramForm } from '@/components/admin/offline/ProgramForm'
 import type { OfflineProgram } from '@/types/database'
 import type { Metadata } from 'next'
@@ -43,8 +43,18 @@ export default async function EditOfflineProgramPage({
         >
           <ArrowLeft className="h-4 w-4" /> 프로그램 목록
         </Link>
-        <h1 className="mt-2 text-2xl font-bold text-navy">{program.title}</h1>
-        <p className="text-xs text-gray-400 font-mono">/{program.slug}</p>
+        <div className="mt-2 flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-navy">{program.title}</h1>
+            <p className="text-xs text-gray-400 font-mono">/{program.slug}</p>
+          </div>
+          <Link
+            href={`/admin/offline/programs/${program.id}/sessions`}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-accent/40 bg-accent-pale px-4 py-2 text-sm font-medium text-accent hover:bg-accent hover:text-white transition"
+          >
+            <Calendar className="h-4 w-4" /> 회차 관리
+          </Link>
+        </div>
       </div>
       <ProgramForm initial={program} categories={categories} />
     </div>

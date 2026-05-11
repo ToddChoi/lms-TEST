@@ -1007,3 +1007,53 @@ export const OFFLINE_PROGRAM_STATUS_LABEL: Record<OfflineProgramStatus, string> 
   active: '공개',
   closed: '종료',
 }
+
+export type OfflineSessionStatus = 'open' | 'closed' | 'cancelled' | 'completed'
+
+export interface OfflineSessionRefundPolicy {
+  full_refund_days_before: number
+  half_refund_days_before: number
+}
+
+export interface OfflineSession {
+  id: string
+  program_id: string
+  title: string | null
+  start_date: string  // YYYY-MM-DD
+  end_date: string    // YYYY-MM-DD
+  capacity: number
+  price: number
+  vat_included: boolean
+  location_name: string | null
+  location_address: string | null
+  location_url: string | null
+  payment_deadline_days: number | null
+  payment_deadline_before_start: number | null
+  refund_policy: OfflineSessionRefundPolicy
+  status: OfflineSessionStatus
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
+
+export const OFFLINE_SESSION_STATUS_LABEL: Record<OfflineSessionStatus, string> = {
+  open: '신청 가능',
+  closed: '마감',
+  cancelled: '취소',
+  completed: '종료',
+}
+
+export interface OfflineSessionDay {
+  id: string
+  session_id: string
+  day_number: number
+  date: string        // YYYY-MM-DD
+  start_time: string  // HH:MM:SS
+  end_time: string    // HH:MM:SS
+  topic: string | null
+  qr_token: string
+  qr_active_from: string   // ISO TIMESTAMPTZ
+  qr_active_until: string  // ISO TIMESTAMPTZ
+  created_at: string
+  updated_at: string
+}
