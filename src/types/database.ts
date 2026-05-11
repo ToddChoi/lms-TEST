@@ -965,3 +965,45 @@ export type NavLink = {
   href: string
   target: string
 }
+
+// ─────────────────────────────────────────────────
+// Phase 7: 오프라인 교육 (offline_*)
+// 마이그레이션: supabase/migration_offline_v2.sql
+// 명세: docs/DATA_MODEL_OFFLINE_V2.md
+// ─────────────────────────────────────────────────
+
+export type OfflineProgramType = 'workshop' | 'regular_course' | 'corporate'
+export type OfflineProgramStatus = 'draft' | 'active' | 'closed'
+
+export interface OfflineProgram {
+  id: string
+  title: string
+  slug: string
+  description: string | null
+  category_id: string | null
+  thumbnail_url: string | null
+  program_type: OfflineProgramType
+  instructor_name: string | null
+  instructor_bio: string | null
+  what_you_learn: string[]
+  requirements: string[]
+  target_audience: string | null
+  completion_attendance_rate: number
+  status: OfflineProgramStatus
+  is_featured: boolean
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
+
+export const OFFLINE_PROGRAM_TYPE_LABEL: Record<OfflineProgramType, string> = {
+  workshop: '워크샵',
+  regular_course: '정규 과정',
+  corporate: '기업 맞춤',
+}
+
+export const OFFLINE_PROGRAM_STATUS_LABEL: Record<OfflineProgramStatus, string> = {
+  draft: '준비중',
+  active: '공개',
+  closed: '종료',
+}

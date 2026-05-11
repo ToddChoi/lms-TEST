@@ -22,6 +22,7 @@ import {
   Blocks,
   FileText,
   Image as ImageIcon,
+  Briefcase,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -74,6 +75,13 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/contacts',         label: '이용문의',          icon: MessageSquare },
       { href: '/admin/cms/menus',        label: '네비게이션',        icon: Navigation },
       { href: '/admin/media',            label: '미디어 라이브러리', icon: ImageIcon },
+    ],
+  },
+  {
+    label: '오프라인 교육',
+    items: [
+      { href: '/admin/offline/programs', label: '프로그램 관리', icon: Briefcase },
+      // 회차/신청·결제/대기열/출결/수료증/설정 — Phase 1 후속 세션에서 추가
     ],
   },
   {
