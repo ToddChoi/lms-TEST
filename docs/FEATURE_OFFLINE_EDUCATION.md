@@ -69,8 +69,22 @@
 
 ## 3. DB 스키마 추가
 
+> ⚠️ **본 §3 의 SQL 블록은 v1 초안이며, v2 데이터 모델 (`docs/DATA_MODEL_OFFLINE_V2.md`) 로 전면 대체됐습니다.**
+> 실제 적용 마이그레이션: **`supabase/migration_offline_v2.sql`**
+>
+> v2 가 v1 대비 보강:
+> - 가격/환불 정책 신청 시점 스냅샷 (관리자 정책 변경이 기존 신청자에 소급 X)
+> - 정원 동시성 (DB 함수 + `FOR UPDATE` 행 락)
+> - 상태 전이 트리거 검증
+> - 모든 도메인 테이블 `deleted_at` soft delete + RESTRICT 기본
+> - `offline_refunds` 환불 이력 별도 테이블
+> - `offline_audit_log` 감사 로그 신규
+> - `is_offline_admin()` / `is_offline_staff()` 헬퍼 (RLS 표현 단순화)
+>
+> 이전 v1 마이그레이션 (`supabase/migration_offline.sql`, commit `9f1a877`) 은 **Supabase 적용 전 폐기 → git rm**. 본 §3 SQL 도 참고용으로만 유지.
+
 Supabase SQL Editor에서 아래 마이그레이션 실행.  
-파일 위치: `supabase/migration_offline.sql`
+파일 위치: ~~`supabase/migration_offline.sql`~~ → **`supabase/migration_offline_v2.sql`**
 
 ```sql
 -- ────────────────────────────────────────
