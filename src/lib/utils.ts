@@ -52,6 +52,24 @@ export function isEnrollable(enrollStart: string | null, enrollEnd: string | nul
   return true
 }
 
+/**
+ * 수강 row 가 현재 유효한지 (학습 권한 있는지) 판정.
+ * status='active' AND (expires_at 없음 OR expires_at 가 미래) 일 때만 true.
+ *
+ * 만료 자동 'expired' 전환 cron 이 없어 status 가 'active' 인 채로 expires_at 만
+ * 지난 row 가 있을 수 있음 — 그래서 query-time 에서 한 번 더 검증.
+ *
+ * Type predicate — 호출 후 narrow 되어 enrollment.id 등 다른 필드 접근 가능.
+ */
+export function isEnrollmentActive<T extends { status: string; expires_at: string | null }>(
+  enrollment: T | null | undefined
+): enrollment is T {
+  if (!enrollment) return false
+  if (enrollment.status !== 'active') return false
+  if (enrollment.expires_at && dayjs(enrollment.expires_at).isBefore(dayjs())) return false
+  return true
+}
+
 /** 수료증 번호 생성 (CERT-YYYYMMDD-XXXXXX) */
 export function generateCertNumber(): string {
   const date = dayjs().format('YYYYMMDD')

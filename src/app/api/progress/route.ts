@@ -5,6 +5,7 @@ import type { Database } from '@/types/database'
 import { sendEmail } from '@/lib/email/send'
 import { CompletionEmail } from '@/lib/email/templates/completion'
 import { CertificateEmail } from '@/lib/email/templates/certificate'
+import { isEnrollmentActive } from '@/lib/utils'
 
 const COMPLETION_THRESHOLD = 0.8 // 80% 이상이면 강좌 수료
 
@@ -33,11 +34,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: '필수 파라미터가 누락됐습니다.' }, { status: 400 })
   }
 
-  // 수강 여부 확인
+  // 수강 여부 확인 — status='active' AND expires_at 가 미래여야 진도 저장 허용.
+  // (자동 'expired' 전환 cron 없으므로 query-time 에서 만료 검증.)
   const { data: rawEnrollment } = await supabase
-    .from('enrollments').select('id, status').eq('user_id', user.id).eq('course_id', courseId).maybeSingle()
-  const enrollment = rawEnrollment as unknown as { id: string; status: string } | null
-  if (!enrollment || enrollment.status !== 'active') {
+    .from('enrollments').select('id, status, expires_at').eq('user_id', user.id).eq('course_id', courseId).maybeSingle()
+  const enrollment = rawEnrollment as unknown as { id: string; status: string; expires_at: string | null } | null
+  if (!isEnrollmentActive(enrollment)) {
     return NextResponse.json({ error: '수강 중인 강좌가 아닙니다.' }, { status: 403 })
   }
 

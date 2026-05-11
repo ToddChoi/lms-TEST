@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { LearnContent } from '@/components/learn/LearnContent'
 import { ArrowLeft, BookOpen } from 'lucide-react'
-import { formatDuration } from '@/lib/utils'
+import { formatDuration, isEnrollmentActive } from '@/lib/utils'
 import { signVideoUrl } from '@/lib/storage/video'
 import type { Metadata } from 'next'
 
@@ -109,7 +109,9 @@ export default async function LearnPage({ params, searchParams }: Props) {
     }))
 
   const currentProgress = progressMap.get(currentLesson.id) ?? null
-  const isEnrolled = !!enrollment && enrollment.status === 'active'
+  // ★ status='active' 만으론 부족 — expires_at 가 지났는데 cron 미가동으로 'active' 인
+  // row 가 있을 수 있음. isEnrollmentActive 가 status + 만료 동시 검증.
+  const isEnrolled = isEnrollmentActive(enrollment)
 
   // ★ 보안: course-videos 가 private 버킷이라 video_url 을 직접 노출하면 재생 안 됨.
   // 권한 검증 후 짧은 TTL 의 signed URL 로 변환해 client 에 전달.
