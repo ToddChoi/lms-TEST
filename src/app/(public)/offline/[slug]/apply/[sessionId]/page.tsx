@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { ChevronLeft, Calendar, MapPin, Users } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { OfflineApplyForm } from '@/components/offline/OfflineApplyForm'
@@ -95,8 +96,36 @@ export default async function ApplyPage({
 
   // 본인 프로필 (이름 / 이메일)
   const { data: rawProfile } = await supabase
-    .from('profiles').select('name, email').eq('id', user.id).single()
-  const profile = rawProfile as unknown as { name: string | null; email: string | null } | null
+    .from('profiles').select('name, email, phone').eq('id', user.id).single()
+  const profile = rawProfile as unknown as {
+    name: string | null
+    email: string | null
+    phone: string | null
+  } | null
+
+  // 본인이 협약기업의 매니저 / 멤버인지 확인 — admin client (companies/company_members
+  // 가 admin only RLS). server-side 에서만 user.id 로 filter 하므로 안전.
+  // 가장 최근 활성 row 1건 → corporate 신청 시 그 회사로 자동 설정.
+  const admin = createAdminClient()
+  const { data: rawMembership } = await (admin as any)
+    .from('company_members')
+    .select('company_id, is_manager, companies(id, name, contact_name, contact_email, contact_phone)')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const membership = rawMembership as unknown as {
+    company_id: string
+    is_manager: boolean
+    companies: {
+      id: string
+      name: string
+      contact_name: string | null
+      contact_email: string | null
+      contact_phone: string | null
+    } | null
+  } | null
+  const companyForCorporate = membership?.companies ?? null
 
   // 이미 본인이 이 회차에 active enrollment (pending_payment OR confirmed) 가 있는지
   const { data: rawExisting } = await supabase
@@ -169,10 +198,12 @@ export default async function ApplyPage({
       ) : (
         <OfflineApplyForm
           sessionId={session.id}
-          totalAmount={session.price}
+          unitPrice={session.price}
           vatIncluded={session.vat_included}
           applicantName={profile?.name ?? ''}
           applicantEmail={profile?.email ?? user.email ?? ''}
+          applicantPhone={profile?.phone ?? ''}
+          company={companyForCorporate}
         />
       )}
     </div>

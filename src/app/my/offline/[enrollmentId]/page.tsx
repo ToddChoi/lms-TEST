@@ -1,9 +1,10 @@
 import Link from 'next/link'
 import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import {
   ChevronLeft, Calendar, MapPin, Clock, CheckCircle2, AlertCircle,
-  XCircle, ExternalLink, QrCode,
+  XCircle, ExternalLink, QrCode, Building2, Users,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import type { Metadata } from 'next'
@@ -39,6 +40,12 @@ interface EnrollmentRow {
   refund_rate: number | null
   created_at: string
   notes: string | null
+  // corporate 필드
+  company_id: string | null
+  company_contact_name: string | null
+  company_contact_email: string | null
+  company_contact_phone: string | null
+  invoice_paid_confirmed_at: string | null
   offline_sessions: {
     id: string
     title: string | null
@@ -50,6 +57,16 @@ interface EnrollmentRow {
     location_url: string | null
     offline_programs: { id: string; title: string; slug: string; instructor_name: string | null } | null
   } | null
+}
+
+interface AttendeeRow {
+  id: string
+  name: string
+  email: string | null
+  phone: string | null
+  department: string | null
+  position: string | null
+  cancelled_at: string | null
 }
 
 export default async function MyOfflineDetailPage({
@@ -69,6 +86,8 @@ export default async function MyOfflineDetailPage({
       payment_method, unit_price, total_amount, vat_included,
       payment_due_at, paid_at, cancelled_at, refunded_at,
       refund_amount, refund_rate, created_at, notes,
+      company_id, company_contact_name, company_contact_email,
+      company_contact_phone, invoice_paid_confirmed_at,
       offline_sessions (
         id, title, start_date, end_date, capacity,
         location_name, location_address, location_url,
@@ -80,6 +99,23 @@ export default async function MyOfflineDetailPage({
     .maybeSingle()
   const enrollment = rawEnrollment as unknown as EnrollmentRow | null
   if (!enrollment || enrollment.applicant_user_id !== user.id) notFound()
+
+  // 단체 신청이면 회사 정보 + 참석자 명단 fetch (admin client — companies/attendees RLS)
+  let companyName: string | null = null
+  let attendees: AttendeeRow[] = []
+  if (enrollment.applicant_type === 'corporate' && enrollment.company_id) {
+    const admin = createAdminClient()
+    const { data: rawCompany } = await (admin as any)
+      .from('companies').select('name').eq('id', enrollment.company_id).maybeSingle()
+    companyName = (rawCompany as unknown as { name: string } | null)?.name ?? null
+
+    const { data: rawAttendees } = await (admin as any)
+      .from('offline_attendees')
+      .select('id, name, email, phone, department, position, cancelled_at')
+      .eq('enrollment_id', enrollment.id)
+      .order('created_at', { ascending: true })
+    attendees = (rawAttendees as unknown as AttendeeRow[] | null) ?? []
+  }
 
   const sess = enrollment.offline_sessions
   const prog = sess?.offline_programs
@@ -144,6 +180,80 @@ export default async function MyOfflineDetailPage({
         </section>
       )}
 
+      {/* 단체 신청 정보 (corporate 만) */}
+      {enrollment.applicant_type === 'corporate' && (
+        <section className="mb-6 rounded-2xl bg-white p-5 shadow-sm">
+          <h2 className="mb-3 flex items-center gap-1.5 text-sm font-bold text-navy">
+            <Building2 className="h-4 w-4 text-accent" /> 단체 신청 정보
+          </h2>
+          <dl className="flex flex-col gap-2 text-sm">
+            {companyName && <Row label="회사" value={companyName} />}
+            <Row label="참석 인원" value={`${enrollment.attendee_count}명`} />
+            {enrollment.company_contact_name && (
+              <Row
+                label="담당자"
+                value={
+                  <>
+                    {enrollment.company_contact_name}
+                    {enrollment.company_contact_email && (
+                      <span className="ml-1 text-xs text-gray-500">
+                        ({enrollment.company_contact_email})
+                      </span>
+                    )}
+                    {enrollment.company_contact_phone && (
+                      <span className="ml-1 text-xs text-gray-500">
+                        · {enrollment.company_contact_phone}
+                      </span>
+                    )}
+                  </>
+                }
+              />
+            )}
+          </dl>
+        </section>
+      )}
+
+      {/* 참석자 명단 (corporate 만) */}
+      {enrollment.applicant_type === 'corporate' && attendees.length > 0 && (
+        <section className="mb-6 rounded-2xl bg-white p-5 shadow-sm">
+          <h2 className="mb-3 flex items-center gap-1.5 text-sm font-bold text-navy">
+            <Users className="h-4 w-4 text-accent" /> 참석자 명단 ({attendees.filter((a) => !a.cancelled_at).length}명)
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-gray-100 text-gray-500">
+                  <th className="px-2 py-2 text-left font-semibold">이름</th>
+                  <th className="px-2 py-2 text-left font-semibold">이메일</th>
+                  <th className="px-2 py-2 text-left font-semibold">전화</th>
+                  <th className="px-2 py-2 text-left font-semibold">부서</th>
+                  <th className="px-2 py-2 text-left font-semibold">직책</th>
+                  <th className="px-2 py-2 text-left font-semibold">상태</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {attendees.map((a) => (
+                  <tr key={a.id} className={a.cancelled_at ? 'opacity-50' : ''}>
+                    <td className="px-2 py-2 font-medium text-navy">{a.name}</td>
+                    <td className="px-2 py-2 text-gray-600">{a.email ?? '-'}</td>
+                    <td className="px-2 py-2 text-gray-600">{a.phone ?? '-'}</td>
+                    <td className="px-2 py-2 text-gray-600">{a.department ?? '-'}</td>
+                    <td className="px-2 py-2 text-gray-600">{a.position ?? '-'}</td>
+                    <td className="px-2 py-2">
+                      {a.cancelled_at ? (
+                        <span className="text-red-500">취소</span>
+                      ) : (
+                        <span className="text-green-600">참석</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
       <section className="mb-6 rounded-2xl bg-white p-5 shadow-sm">
         <h2 className="mb-3 text-sm font-bold text-navy">결제 정보</h2>
         <dl className="flex flex-col gap-2 text-sm">
@@ -175,6 +285,15 @@ export default async function MyOfflineDetailPage({
               })}
             />
           )}
+          {enrollment.invoice_paid_confirmed_at && (
+            <Row
+              label="입금 확인"
+              value={new Date(enrollment.invoice_paid_confirmed_at).toLocaleString('ko-KR', {
+                year: 'numeric', month: 'long', day: 'numeric',
+                hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Seoul',
+              })}
+            />
+          )}
           {enrollment.refunded_at && (
             <Row
               label="환불"
@@ -187,6 +306,18 @@ export default async function MyOfflineDetailPage({
             />
           )}
         </dl>
+
+        {/* invoice + pending — 입금 안내 페이지 link */}
+        {enrollment.payment_method === 'invoice' &&
+          enrollment.status === 'pending_payment' &&
+          sess && (
+            <Link
+              href={`/offline/${prog?.slug}/apply/${sess.id}/invoice-success?enrollment_id=${enrollment.id}`}
+              className="mt-4 inline-flex items-center gap-1 rounded-lg bg-accent px-4 py-2 text-xs font-medium text-white hover:bg-accent-light"
+            >
+              💳 입금 안내 다시 보기
+            </Link>
+          )}
       </section>
 
       {/* QR 체크인 — Phase 5 */}
