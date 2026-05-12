@@ -1,7 +1,9 @@
 ﻿import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { Building2 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 export default async function AdminCompaniesPage() {
   const supabase = createClient()
@@ -53,6 +55,14 @@ export default async function AdminCompaniesPage() {
         </Link>
       </div>
 
+      {(companies ?? []).length === 0 ? (
+        <EmptyState
+          icon={Building2}
+          title="등록된 기업이 없습니다"
+          description="B2B 협약 기업을 등록하면 단체 수강 / 통계 / 매니저 위임이 가능합니다."
+          action={{ label: '새 기업 등록', href: '/admin/companies/new' }}
+        />
+      ) : (
       <div className="overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-100">
         <table className="w-full text-sm">
           <thead className="bg-[#F4F6FA] text-[#0B1F3A]">
@@ -67,14 +77,7 @@ export default async function AdminCompaniesPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {(companies ?? []).length === 0 ? (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
-                  등록된 기업이 없습니다.
-                </td>
-              </tr>
-            ) : (
-              (companies ?? []).map((c) => (
+            {(companies ?? []).map((c) => (
                 <tr key={c.id} className="hover:bg-[#E8F2FC]/30 transition">
                   <td className="px-4 py-3 font-medium text-[#0B1F3A]">{c.name}</td>
                   <td className="px-4 py-3 text-gray-700">{c.contact_name ?? '-'}</td>
@@ -103,11 +106,11 @@ export default async function AdminCompaniesPage() {
                     </Link>
                   </td>
                 </tr>
-              ))
-            )}
+            ))}
           </tbody>
         </table>
       </div>
+      )}
     </div>
   )
 }

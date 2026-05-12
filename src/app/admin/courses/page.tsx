@@ -6,6 +6,7 @@ import { formatDate, formatDuration } from '@/lib/utils'
 import { Plus, Pencil, BookOpen } from 'lucide-react'
 import { Suspense } from 'react'
 import { Pagination } from '@/components/ui/Pagination'
+import { EmptyState } from '@/components/ui/EmptyState'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: '강좌 관리' }
@@ -67,6 +68,7 @@ export default async function AdminCoursesPage({
         </Link>
       </div>
 
+      {courses && courses.length > 0 ? (
       <div className="overflow-x-auto rounded-2xl bg-white shadow-sm">
         <table className="w-full text-sm">
           <thead>
@@ -81,8 +83,7 @@ export default async function AdminCoursesPage({
             </tr>
           </thead>
           <tbody>
-            {courses && courses.length > 0 ? (
-              courses.map((course) => {
+            {courses.map((course) => {
                 const cat = course.categories as { name: string } | null
                 const ins = course.instructor as { name: string } | null
                 return (
@@ -121,20 +122,18 @@ export default async function AdminCoursesPage({
                     </td>
                   </tr>
                 )
-              })
-            ) : (
-              <tr>
-                <td colSpan={7} className="py-16 text-center text-gray-400">
-                  등록된 강좌가 없습니다.{' '}
-                  <Link href="/admin/courses/new" className="text-accent hover:underline">
-                    첫 강좌를 추가하세요
-                  </Link>
-                </td>
-              </tr>
-            )}
+              })}
           </tbody>
         </table>
       </div>
+      ) : (
+        <EmptyState
+          icon={BookOpen}
+          title={q ? '검색 결과가 없습니다' : '등록된 강좌가 없습니다'}
+          description={q ? '다른 검색어를 시도해보세요.' : '첫 강좌를 만들어 학생들과 만나보세요.'}
+          action={!q ? { label: '강좌 만들기', href: '/admin/courses/new' } : undefined}
+        />
+      )}
 
       {(count ?? 0) > PAGE_SIZE && (
         <div className="mt-6 flex justify-center">
