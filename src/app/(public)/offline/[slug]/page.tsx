@@ -260,14 +260,27 @@ export default async function OfflineProgramDetailPage({
                         >
                           {OFFLINE_SESSION_STATUS_LABEL[s.status]}
                         </span>
-                        <button
-                          type="button"
-                          disabled
-                          title="신청 기능은 Phase 2 에서 활성화됩니다"
-                          className="cursor-not-allowed rounded-lg bg-gray-200 px-3 py-1 text-[11px] font-medium text-gray-500"
-                        >
-                          준비 중
-                        </button>
+                        {!isClosed && s.price > 0 ? (
+                          <Link
+                            href={`/offline/${program.slug}/apply/${s.id}`}
+                            className="rounded-lg bg-accent px-3 py-1 text-[11px] font-semibold text-white transition hover:bg-accent-light"
+                          >
+                            신청하기 →
+                          </Link>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled
+                            title={
+                              isClosed
+                                ? '마감된 회차입니다'
+                                : '무료 회차 신청은 곧 오픈됩니다 (현재는 유료 카드 결제만 지원)'
+                            }
+                            className="cursor-not-allowed rounded-lg bg-gray-200 px-3 py-1 text-[11px] font-medium text-gray-500"
+                          >
+                            {isClosed ? '마감' : '준비 중'}
+                          </button>
+                        )}
                       </div>
                     </li>
                   )
@@ -276,8 +289,8 @@ export default async function OfflineProgramDetailPage({
             )}
 
             <p className="mt-4 rounded-lg bg-blue-50 p-3 text-[11px] leading-relaxed text-blue-700">
-              <strong>📢 안내</strong>: 온라인 신청은 곧 오픈됩니다.
-              현재는 사전 안내 단계로, 회차 정보만 확인 가능합니다.
+              <strong>📢 안내</strong>: 카드 결제로 즉시 신청 가능합니다.
+              세금계산서·기업 단체 신청은 곧 오픈됩니다.
             </p>
           </div>
         </aside>
