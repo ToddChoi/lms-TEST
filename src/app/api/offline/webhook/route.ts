@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import type Stripe from 'stripe'
 import { getStripeServer } from '@/lib/stripe'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { sendEmail } from '@/lib/email/send'
+import { OfflinePaymentConfirmedEmail } from '@/lib/email/templates/offline-payment-confirmed'
+import { formatDate } from '@/lib/utils'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -179,7 +182,7 @@ export async function POST(request: Request) {
         }
 
         // 정상 — confirmed 전이
-        const { error: updateErr } = await (admin as any)
+        const { error: updateErr, data: confirmedRows } = await (admin as any)
           .from('offline_enrollments')
           .update({
             status: 'confirmed',
@@ -188,10 +191,18 @@ export async function POST(request: Request) {
           })
           .eq('id', enrollmentId)
           .eq('status', 'pending_payment')  // race-safe (다른 이벤트가 먼저 처리했으면 skip)
+          .select('id')
 
         if (updateErr) {
           console.error('[offline webhook] enrollment confirm failed:', updateErr)
           throw updateErr
+        }
+
+        // 실제로 confirmed 전이된 경우만 알림 (멱등 — 두 번째 webhook 시 confirmedRows 빈 배열)
+        if (Array.isArray(confirmedRows) && confirmedRows.length > 0) {
+          await dispatchPaymentConfirmedEmail(admin, enrollmentId).catch((e) => {
+            console.warn('[offline webhook] payment_confirmed email failed:', e)
+          })
         }
         break
       }
@@ -245,4 +256,81 @@ export async function POST(request: Request) {
     console.error('[offline webhook] handler error:', err)
     return NextResponse.json({ error: message }, { status: 500 })
   }
+}
+
+/**
+ * 결제 완료 이메일 발송 + offline_notifications 기록 (자리 확정 알림).
+ * webhook 의 confirmed 전이가 실제로 발생한 row 에만 호출 (멱등 보장).
+ */
+async function dispatchPaymentConfirmedEmail(
+  admin: ReturnType<typeof createAdminClient>,
+  enrollmentId: string
+) {
+  const { data: rawEnrollment } = await admin
+    .from('offline_enrollments')
+    .select(`
+      id, applicant_user_id,
+      offline_sessions (
+        title, start_date, end_date, location_name, location_address,
+        offline_programs ( title )
+      )
+    `)
+    .eq('id', enrollmentId)
+    .maybeSingle()
+  const enrollment = rawEnrollment as unknown as {
+    id: string
+    applicant_user_id: string
+    offline_sessions: {
+      title: string | null
+      start_date: string
+      end_date: string
+      location_name: string | null
+      location_address: string | null
+      offline_programs: { title: string } | null
+    } | null
+  } | null
+  if (!enrollment || !enrollment.offline_sessions) return
+
+  const { data: rawProfile } = await admin
+    .from('profiles')
+    .select('email, name')
+    .eq('id', enrollment.applicant_user_id)
+    .maybeSingle()
+  const profile = rawProfile as unknown as { email: string | null; name: string | null } | null
+  if (!profile?.email) return
+
+  const sess = enrollment.offline_sessions
+  const programTitle = sess.offline_programs?.title ?? '오프라인 교육'
+  const sessionPeriod =
+    sess.start_date === sess.end_date
+      ? formatDate(sess.start_date)
+      : `${formatDate(sess.start_date)} ~ ${formatDate(sess.end_date)}`
+
+  const emailRes = await sendEmail({
+    to: profile.email,
+    subject: `[자리 확정] ${programTitle}`,
+    template: 'offline-payment-confirmed',
+    userId: enrollment.applicant_user_id,
+    react: OfflinePaymentConfirmedEmail({
+      name: profile.name,
+      programTitle,
+      sessionLabel: sess.title ?? '',
+      sessionPeriod,
+      locationName: sess.location_name,
+      locationAddress: sess.location_address,
+      enrollmentId,
+    }),
+  })
+
+  await (admin as any).from('offline_notifications').insert({
+    enrollment_id: enrollmentId,
+    user_id: enrollment.applicant_user_id,
+    type: 'payment_confirmed',
+    channels: ['email'],
+    scheduled_at: new Date().toISOString(),
+    subject: `[자리 확정] ${programTitle}`,
+    status: emailRes.ok ? 'sent' : 'failed',
+    email_sent_at: emailRes.ok && !emailRes.skipped ? new Date().toISOString() : null,
+    error_message: emailRes.error ?? (emailRes.skipped ? emailRes.reason : null),
+  })
 }

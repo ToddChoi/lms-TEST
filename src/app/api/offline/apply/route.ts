@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStripeServer } from '@/lib/stripe'
+import { sendEmail } from '@/lib/email/send'
+import { OfflineApplicationReceivedEmail } from '@/lib/email/templates/offline-application-received'
+import { formatDate } from '@/lib/utils'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -67,31 +70,34 @@ export async function POST(request: Request) {
   }
   const enrollmentId = rpcData as string
 
-  // 가격 / 금액 — enrollment 에 이미 스냅샷 저장됐음. 결제 금액 가져옴.
+  // 가격 / 금액 — enrollment 에 이미 스냅샷 저장됐음. 결제 금액 + 결제 기한 가져옴.
   const { data: rawEnrollment } = await supabase
     .from('offline_enrollments')
-    .select('id, total_amount, session_id')
+    .select('id, total_amount, session_id, vat_included, payment_due_at')
     .eq('id', enrollmentId)
     .single()
   const enrollment = rawEnrollment as unknown as {
     id: string
     total_amount: number
     session_id: string
+    vat_included: boolean
+    payment_due_at: string
   } | null
   if (!enrollment) {
     return NextResponse.json({ error: '신청 생성 후 조회 실패.' }, { status: 500 })
   }
 
-  // 회차 + 프로그램 정보 (Stripe 결제 description 용)
+  // 회차 + 프로그램 정보 (Stripe 결제 description + 알림 메일 용)
   const { data: rawSession } = await supabase
     .from('offline_sessions')
-    .select('title, start_date, end_date, offline_programs(title, slug)')
+    .select('title, start_date, end_date, location_name, offline_programs(title, slug)')
     .eq('id', enrollment.session_id)
     .single()
   const session = rawSession as unknown as {
     title: string | null
     start_date: string
     end_date: string
+    location_name: string | null
     offline_programs: { title: string; slug: string } | null
   } | null
 
@@ -145,6 +151,58 @@ export async function POST(request: Request) {
       .from('offline_enrollments')
       .update({ stripe_session_id: checkoutSession.id })
       .eq('id', enrollmentId)
+
+    // 신청 접수 이메일 — best effort (실패해도 결제 흐름엔 영향 X)
+    // offline_notifications 에도 기록 (Phase 6 알림 시스템 통일성)
+    if (user.email && session) {
+      try {
+        // 신청자 이름
+        const { data: rawProfile } = await supabase
+          .from('profiles').select('name').eq('id', user.id).maybeSingle()
+        const profileName = (rawProfile as unknown as { name: string | null } | null)?.name ?? null
+
+        const programTitle = session.offline_programs?.title ?? '오프라인 교육'
+        const sessionPeriod =
+          session.start_date === session.end_date
+            ? formatDate(session.start_date)
+            : `${formatDate(session.start_date)} ~ ${formatDate(session.end_date)}`
+
+        const emailRes = await sendEmail({
+          to: user.email,
+          subject: `[신청 접수] ${programTitle}`,
+          template: 'offline-application-received',
+          userId: user.id,
+          react: OfflineApplicationReceivedEmail({
+            name: profileName,
+            programTitle,
+            sessionLabel: session.title ?? '',
+            sessionPeriod,
+            locationName: session.location_name,
+            totalAmount: enrollment.total_amount,
+            vatIncluded: enrollment.vat_included,
+            paymentDueAt: enrollment.payment_due_at,
+            enrollmentId,
+          }),
+        })
+
+        // offline_notifications 기록 (admin client — RLS 우회)
+        const admin = createAdminClient()
+        await (admin as any).from('offline_notifications').insert({
+          enrollment_id: enrollmentId,
+          user_id: user.id,
+          type: 'application_received',
+          channels: ['email'],
+          scheduled_at: new Date().toISOString(),
+          subject: `[신청 접수] ${programTitle}`,
+          status: emailRes.ok ? 'sent' : 'failed',
+          email_sent_at: emailRes.ok && !emailRes.skipped ? new Date().toISOString() : null,
+          error_message: emailRes.error ?? (emailRes.skipped ? emailRes.reason : null),
+        })
+      } catch (e) {
+        console.warn('[offline apply] notification dispatch failed:', e)
+        // 무시 — 결제 흐름은 계속
+      }
+    }
 
     return NextResponse.json({ url: checkoutSession.url, enrollment_id: enrollmentId })
   } catch (err) {
