@@ -24,6 +24,7 @@ import {
   Image as ImageIcon,
   Briefcase,
   Calendar,
+  ClipboardCheck,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -81,9 +82,11 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: '오프라인 교육',
     items: [
-      { href: '/admin/offline/programs', label: '프로그램 관리', icon: Briefcase },
-      { href: '/admin/offline/sessions', label: '회차 일정',      icon: Calendar },
-      // 신청·결제/대기열/출결/수료증/설정 — Phase 2~6 에서 추가
+      { href: '/admin/offline/programs',    label: '프로그램 관리',  icon: Briefcase },
+      { href: '/admin/offline/sessions',    label: '회차 일정',      icon: Calendar },
+      { href: '/admin/offline/enrollments', label: '신청·결제 현황', icon: ClipboardCheck },
+      { href: '/admin/offline/settings',    label: '오프라인 설정',  icon: Settings },
+      // 대기열/출결/수료증 — Phase 4~5 에서 추가
     ],
   },
   {
