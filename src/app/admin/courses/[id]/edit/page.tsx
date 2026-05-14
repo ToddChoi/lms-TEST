@@ -27,7 +27,7 @@ export default async function EditCoursePage({ params }: Props) {
     supabase.from('categories').select('*').eq('is_visible', true).order('sort_order'),
     supabase
       .from('sections')
-      .select('id, title, sort_order, lessons(id, title, video_url, duration, is_preview, sort_order)')
+      .select('id, title, sort_order, lessons(id, title, video_url, duration, is_preview, sort_order, deleted_at)')
       .eq('course_id', params.id)
       .order('sort_order', { ascending: true }),
   ])
@@ -37,12 +37,21 @@ export default async function EditCoursePage({ params }: Props) {
 
   const sectionsRaw = rawSections as unknown as {
     id: string; title: string; sort_order: number
-    lessons: { id: string; title: string; video_url: string | null; duration: number; is_preview: boolean; sort_order: number }[]
+    lessons: {
+      id: string; title: string; video_url: string | null; duration: number
+      is_preview: boolean; sort_order: number; deleted_at: string | null
+    }[]
   }[] | null
 
+  // 활성 + 휴지통 분리 — SectionManager 가 양쪽 모두 처리.
   const sections: Section[] = (sectionsRaw ?? []).map((s) => ({
     ...s,
-    lessons: [...(s.lessons ?? [])].sort((a, b) => a.sort_order - b.sort_order),
+    lessons: [...(s.lessons ?? [])]
+      .filter((l) => l.deleted_at === null)
+      .sort((a, b) => a.sort_order - b.sort_order),
+    deletedLessons: [...(s.lessons ?? [])]
+      .filter((l) => l.deleted_at !== null)
+      .sort((a, b) => (b.deleted_at ?? '').localeCompare(a.deleted_at ?? '')),
   }))
 
   return (

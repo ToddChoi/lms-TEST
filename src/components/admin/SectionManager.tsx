@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatDuration } from '@/lib/utils'
-import { ChevronDown, ChevronRight, PlayCircle, Eye, Pencil, Trash2, Plus, GripVertical } from 'lucide-react'
+import { ChevronDown, ChevronRight, PlayCircle, Eye, Pencil, Trash2, Plus, GripVertical, RotateCcw, Trash } from 'lucide-react'
 import { VideoUploader } from '@/components/admin/VideoUploader'
 
 export interface Lesson {
@@ -15,11 +15,18 @@ export interface Lesson {
   sort_order: number
 }
 
+// soft-deleted lesson — 휴지통 패널 표시용. deleted_at 기록 보존.
+export interface DeletedLesson extends Lesson {
+  deleted_at: string | null
+}
+
 export interface Section {
   id: string
   title: string
   sort_order: number
   lessons: Lesson[]
+  // 서버에서 fetch 한 soft-deleted lessons. SectionManager 가 휴지통 패널로 표시 + 복원.
+  deletedLessons?: DeletedLesson[]
 }
 
 interface Props {
@@ -180,6 +187,8 @@ export default function SectionManager({ courseId, initialSections }: Props) {
   const [newLesson, setNewLesson] = useState<LessonForm>(emptyLesson)
   const [editingLessonId, setEditingLessonId] = useState<string | null>(null)
   const [editLessonForm, setEditLessonForm] = useState<LessonForm>(emptyLesson)
+  // 휴지통 토글 — 섹션별로 독립.
+  const [trashExpandedIds, setTrashExpandedIds] = useState<Set<string>>(new Set())
 
   function toggleExpand(id: string) {
     setExpandedIds((prev) => {
@@ -309,7 +318,7 @@ export default function SectionManager({ courseId, initialSections }: Props) {
   }
 
   async function handleDeleteLesson(lessonId: string, sectionId: string) {
-    if (!confirm('이 강의를 삭제하시겠습니까?')) return
+    if (!confirm('이 강의를 삭제하시겠습니까?\n\n학생 진도/수료증은 보존되며, 30일 안에 휴지통에서 복원할 수 있습니다.')) return
     setLoading(true); setError('')
     const res = await fetch('/api/admin/lessons', {
       method: 'DELETE',
@@ -318,10 +327,49 @@ export default function SectionManager({ courseId, initialSections }: Props) {
     })
     setLoading(false)
     if (res.ok) {
-      setSections((prev) => prev.map((s) => s.id === sectionId ? { ...s, lessons: s.lessons.filter((l) => l.id !== lessonId) } : s))
+      // active → deleted 로 이동 (router.refresh 가 deletedLessons 까지 다시 가져오지만 즉시 반영용)
+      setSections((prev) => prev.map((s) => {
+        if (s.id !== sectionId) return s
+        const removed = s.lessons.find((l) => l.id === lessonId)
+        return {
+          ...s,
+          lessons: s.lessons.filter((l) => l.id !== lessonId),
+          deletedLessons: removed
+            ? [{ ...removed, deleted_at: new Date().toISOString() }, ...(s.deletedLessons ?? [])]
+            : (s.deletedLessons ?? []),
+        }
+      }))
       router.refresh()
     } else {
       const data = await res.json(); setError(data.error ?? '삭제 실패')
+    }
+  }
+
+  // 복원: PATCH { id, restore: true } → deleted_at = null.
+  async function handleRestoreLesson(lessonId: string, sectionId: string) {
+    if (!confirm('이 강의를 복원하시겠습니까?')) return
+    setLoading(true); setError('')
+    const res = await fetch('/api/admin/lessons', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: lessonId, restore: true }),
+    })
+    setLoading(false)
+    if (res.ok) {
+      setSections((prev) => prev.map((s) => {
+        if (s.id !== sectionId) return s
+        const restored = (s.deletedLessons ?? []).find((l) => l.id === lessonId)
+        if (!restored) return s
+        const { deleted_at: _del, ...rest } = restored // eslint-disable-line @typescript-eslint/no-unused-vars
+        return {
+          ...s,
+          lessons: [...s.lessons, rest].sort((a, b) => a.sort_order - b.sort_order),
+          deletedLessons: (s.deletedLessons ?? []).filter((l) => l.id !== lessonId),
+        }
+      }))
+      router.refresh()
+    } else {
+      const data = await res.json(); setError(data.error ?? '복원 실패')
     }
   }
 
@@ -515,6 +563,58 @@ export default function SectionManager({ courseId, initialSections }: Props) {
                   >
                     <Plus className="w-4 h-4" /> 강의 추가
                   </button>
+                )}
+
+                {/* 휴지통 — soft-deleted lessons. 토글로 펼침 + 복원 버튼.
+                    학생 진도/수료증은 보존되어 복원 시 그대로 다시 활성. */}
+                {section.deletedLessons && section.deletedLessons.length > 0 && (
+                  <div className="mt-3 border-t border-dashed border-gray-200 pt-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTrashExpandedIds((prev) => {
+                          const next = new Set(prev)
+                          if (next.has(section.id)) next.delete(section.id)
+                          else next.add(section.id)
+                          return next
+                        })
+                      }}
+                      className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 transition"
+                    >
+                      <Trash className="w-3.5 h-3.5" />
+                      휴지통 ({section.deletedLessons.length})
+                      {trashExpandedIds.has(section.id)
+                        ? <ChevronDown className="w-3 h-3" />
+                        : <ChevronRight className="w-3 h-3" />}
+                    </button>
+
+                    {trashExpandedIds.has(section.id) && (
+                      <div className="mt-2 space-y-1.5">
+                        {section.deletedLessons.map((l) => (
+                          <div
+                            key={l.id}
+                            className="flex items-center gap-3 px-3 py-2 rounded-lg bg-red-50/40 border border-red-100/60"
+                          >
+                            <Trash className="w-3.5 h-3.5 text-red-300 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm text-gray-500 line-through truncate">{l.title}</p>
+                              <p className="text-xs text-gray-400">
+                                삭제: {l.deleted_at ? new Date(l.deleted_at).toLocaleString('ko-KR') : '-'}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => handleRestoreLesson(l.id, section.id)}
+                              disabled={loading}
+                              className="flex items-center gap-1 text-xs text-[#2D7DD2] hover:text-[#2566b0] px-2 py-1 rounded transition disabled:opacity-60"
+                              title="복원"
+                            >
+                              <RotateCcw className="w-3 h-3" /> 복원
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             )}

@@ -91,13 +91,16 @@ export default async function CourseDetailPage({ params }: Props) {
   const course = rawCourse as unknown as CourseDetail | null
   if (!course) notFound()
 
-  // 섹션 + 레슨 목록
-  type LessonRow = { id: string; title: string; duration: number; is_preview: boolean; sort_order: number }
+  // 섹션 + 레슨 목록 — soft-deleted lesson 은 공개 페이지 노출 X.
+  type LessonRow = {
+    id: string; title: string; duration: number; is_preview: boolean; sort_order: number
+    deleted_at: string | null
+  }
   type SectionWithLessons = { id: string; title: string; sort_order: number; lessons: LessonRow[] }
 
   const { data: rawSections } = await supabase
     .from('sections')
-    .select(`id, title, sort_order, lessons (id, title, duration, is_preview, sort_order)`)
+    .select(`id, title, sort_order, lessons (id, title, duration, is_preview, sort_order, deleted_at)`)
     .eq('course_id', params.id)
     .order('sort_order')
 
@@ -107,7 +110,9 @@ export default async function CourseDetailPage({ params }: Props) {
     id: s.id,
     title: s.title,
     sort_order: s.sort_order,
-    lessons: [...s.lessons].sort((a, b) => a.sort_order - b.sort_order),
+    lessons: [...s.lessons]
+      .filter((l) => l.deleted_at === null)
+      .sort((a, b) => a.sort_order - b.sort_order),
   }))
 
   // 수강생 수

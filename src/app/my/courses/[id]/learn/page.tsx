@@ -37,19 +37,25 @@ export default async function LearnPage({ params, searchParams }: Props) {
   const course = rawCourse as unknown as { id: string; title: string; total_duration: number } | null
   if (!course) notFound()
 
-  // 섹션 + 레슨 목록
+  // 섹션 + 레슨 목록 — soft-deleted lesson 은 client-side 필터링.
   type LessonRaw = {
     id: string; title: string; video_url: string | null
     duration: number; is_preview: boolean; sort_order: number
+    deleted_at: string | null
   }
   type SectionRaw = { id: string; title: string; sort_order: number; lessons: LessonRaw[] }
 
   const { data: rawSections } = await supabase
     .from('sections')
-    .select('id, title, sort_order, lessons (id, title, video_url, duration, is_preview, sort_order)')
+    .select('id, title, sort_order, lessons (id, title, video_url, duration, is_preview, sort_order, deleted_at)')
     .eq('course_id', params.id)
     .order('sort_order')
-  const sections = (rawSections as unknown as SectionRaw[] | null) ?? []
+  const rawSectionsList = (rawSections as unknown as SectionRaw[] | null) ?? []
+  // 활성 lesson 만 — deleted_at 있는 lesson 은 학습 화면 노출 X.
+  const sections: SectionRaw[] = rawSectionsList.map((s) => ({
+    ...s,
+    lessons: (s.lessons ?? []).filter((l) => l.deleted_at === null),
+  }))
 
   const allLessons = sections
     .sort((a, b) => a.sort_order - b.sort_order)

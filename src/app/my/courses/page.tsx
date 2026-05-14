@@ -39,11 +39,12 @@ export default async function MyCoursesPage() {
 
   let progressMap: Record<string, number> = {}
   if (courseIds.length > 0) {
-    // 각 강좌의 전체 레슨 수
+    // 각 강좌의 전체 레슨 수 (soft-deleted 제외)
     const { data: rawLessonCounts } = await supabase
       .from('lessons')
       .select('course_id')
       .in('course_id', courseIds)
+      .is('deleted_at', null)
     const lessonCounts = rawLessonCounts as unknown as { course_id: string }[] | null
 
     const { data: rawCompletedProgress } = await supabase

@@ -63,7 +63,8 @@ export async function POST(request: Request) {
   let courseCompleted = false
   if (isCompleted) {
     const [{ data: rawAllLessons }, { data: rawCompleted }] = await Promise.all([
-      supabase.from('lessons').select('id').eq('course_id', courseId),
+      // soft-deleted lesson 제외 — 강사가 lesson 1개 삭제 후 진도율이 갑자기 100% 로 튀는 버그 방지.
+      supabase.from('lessons').select('id').eq('course_id', courseId).is('deleted_at', null),
       supabase.from('lesson_progress').select('id').eq('user_id', user.id).eq('course_id', courseId).eq('is_completed', true),
     ])
     const allLessons = rawAllLessons as unknown as { id: string }[] | null

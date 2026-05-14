@@ -24,9 +24,11 @@ export default async function CourseSectionsPage({
   const course = rawCourse as unknown as { id: string; title: string; status: string } | null
   if (!course) notFound()
 
+  // 활성 + soft-deleted lesson 모두 fetch — client-side 에서 분리.
+  // (deleted 는 SectionManager 의 휴지통 패널에서 복원 가능.)
   const { data: rawSections } = await supabase
     .from('sections')
-    .select('id, title, sort_order, lessons(id, title, video_url, duration, is_preview, sort_order)')
+    .select('id, title, sort_order, lessons(id, title, video_url, duration, is_preview, sort_order, deleted_at)')
     .eq('course_id', params.id)
     .order('sort_order', { ascending: true })
   const sectionsRaw = rawSections as unknown as {
@@ -40,12 +42,18 @@ export default async function CourseSectionsPage({
       duration: number
       is_preview: boolean
       sort_order: number
+      deleted_at: string | null
     }[]
   }[] | null
 
   const sections: Section[] = (sectionsRaw ?? []).map((s) => ({
     ...s,
-    lessons: [...(s.lessons ?? [])].sort((a, b) => a.sort_order - b.sort_order),
+    lessons: [...(s.lessons ?? [])]
+      .filter((l) => l.deleted_at === null)
+      .sort((a, b) => a.sort_order - b.sort_order),
+    deletedLessons: [...(s.lessons ?? [])]
+      .filter((l) => l.deleted_at !== null)
+      .sort((a, b) => (b.deleted_at ?? '').localeCompare(a.deleted_at ?? '')),
   }))
 
   return (

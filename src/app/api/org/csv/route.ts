@@ -72,7 +72,7 @@ export async function GET() {
 
   if (courseIds.length > 0) {
     const [{ data: rawLessons }, { data: rawDone }] = await Promise.all([
-      supabase.from('lessons').select('course_id').in('course_id', courseIds),
+      supabase.from('lessons').select('course_id').in('course_id', courseIds).is('deleted_at', null),
       supabase.from('lesson_progress').select('user_id, course_id')
         .eq('is_completed', true)
         .in('user_id', memberIds)

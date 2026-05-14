@@ -11,14 +11,16 @@ function makeAdminClient() {
 }
 
 // 강좌의 total_duration 재계산 후 업데이트
+// soft-deleted lesson 은 합산 제외 (학습 시간/진도율 노이즈 방지).
 async function recalcCourseDuration(courseId: string) {
   const admin = makeAdminClient() as any
 
-  // 해당 강좌의 모든 lesson duration 합산
+  // 해당 강좌의 활성 lesson duration 만 합산
   const { data: lessons } = await admin
     .from('lessons')
     .select('duration, sections!inner(course_id)')
     .eq('sections.course_id', courseId)
+    .is('deleted_at', null)
 
   const total = (lessons as any[] ?? []).reduce((sum: number, l: any) => sum + (l.duration ?? 0), 0)
 
@@ -97,19 +99,28 @@ export async function PATCH(req: NextRequest) {
   const supabase = sb!
 
   const body = await req.json()
-  const { id, title, video_url, duration, is_preview, sort_order } = body
+  const { id, title, video_url, duration, is_preview, sort_order, restore } = body
 
   if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
 
-  // 변경 전 course_id 먼저 조회
+  // 변경 전 course_id 먼저 조회 (soft-deleted lesson 도 조회 가능 — restore 위해)
   const courseId = await getCourseIdByLesson(id)
 
+  // restore: deleted_at = NULL 로 되돌림. 다른 필드는 무시.
   const updateData: Record<string, unknown> = {}
-  if (title !== undefined) updateData.title = title
-  if (video_url !== undefined) updateData.video_url = video_url
-  if (duration !== undefined) updateData.duration = duration
-  if (is_preview !== undefined) updateData.is_preview = is_preview
-  if (sort_order !== undefined) updateData.sort_order = sort_order
+  if (restore === true) {
+    updateData.deleted_at = null
+  } else {
+    if (title !== undefined) updateData.title = title
+    if (video_url !== undefined) updateData.video_url = video_url
+    if (duration !== undefined) updateData.duration = duration
+    if (is_preview !== undefined) updateData.is_preview = is_preview
+    if (sort_order !== undefined) updateData.sort_order = sort_order
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    return NextResponse.json({ error: '변경할 내용이 없습니다.' }, { status: 400 })
+  }
 
   const { error } = await (supabase as any)
     .from('lessons')
@@ -118,12 +129,15 @@ export async function PATCH(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // total_duration 재계산
+  // total_duration 재계산 (restore 시에도 합산 대상 변경되므로 필요)
   if (courseId) await recalcCourseDuration(courseId)
 
   return NextResponse.json({ success: true })
 }
 
+// soft delete: deleted_at = now(). lesson_progress / 통계 / 수료증 보존.
+// 강사가 실수로 lesson 삭제해도 학생 진도 cascade 삭제 안 됨 (P1 데이터 정합성).
+// 한계: section / course 자체 hard delete 시 cascade hard delete 는 별도 작업.
 export async function DELETE(req: NextRequest) {
   const { guard, supabase: sb } = await requireAdmin()
   if (guard) return guard
@@ -139,12 +153,13 @@ export async function DELETE(req: NextRequest) {
 
   const { error } = await (supabase as any)
     .from('lessons')
-    .delete()
+    .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
+    .is('deleted_at', null) // 이미 삭제된 lesson 재삭제 무시 (멱등)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // total_duration 재계산
+  // total_duration 재계산 — soft delete 후 활성 lesson 만 합산되도록
   if (courseId) await recalcCourseDuration(courseId)
 
   return NextResponse.json({ success: true })

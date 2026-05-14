@@ -49,10 +49,11 @@ export default async function InstructorStudentsPage({ params }: Props) {
     profiles: { name: string | null; email: string | null } | null
   }[] | null) ?? []
 
-  // 강좌 전체 강의 수
+  // 강좌 전체 강의 수 (soft-deleted 제외)
   const { count: totalLessons } = await supabase
     .from('lessons').select('id', { count: 'exact', head: true })
     .eq('course_id', params.id)
+    .is('deleted_at', null)
 
   // 수강생별 완료 강의 수
   const userIds = enrollments.map((e) => e.user_id)

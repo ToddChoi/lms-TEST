@@ -46,6 +46,7 @@ export async function GET(
         .from('lessons')
         .select('*', { count: 'exact', head: true })
         .eq('course_id', courseId)
+        .is('deleted_at', null)
 
       if (!totalLessons || totalLessons === 0) {
         return { ...enroll, progress_percent: 0 }

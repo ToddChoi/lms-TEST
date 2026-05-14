@@ -54,6 +54,7 @@ export default async function OrgDashboardPage() {
         .from('lessons')
         .select('id, course_id')
         .in('course_id', courseIds)
+        .is('deleted_at', null)
       const lessons = rawLessons as unknown as { id: string; course_id: string }[] | null
       const lessonsPerCourse: Record<string, number> = {}
       ;(lessons ?? []).forEach((l) => {

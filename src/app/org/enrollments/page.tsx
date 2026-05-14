@@ -65,6 +65,7 @@ export default async function OrgEnrollmentsPage({
       .from('lessons')
       .select('id, course_id')
       .in('course_id', courseIds)
+      .is('deleted_at', null)
     const lessons = rawLessons as unknown as { id: string; course_id: string }[] | null
     const totalMap: Record<string, number> = {}
     ;(lessons ?? []).forEach((l) => {

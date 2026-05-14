@@ -39,22 +39,24 @@ export default async function MyPage() {
   ])
 
   // ── 가장 최근 학습한 강좌 (이어보기) ──
+  // soft-deleted lesson 가리키는 row 는 skip — limit 5 fetch 후 client-side 필터.
   const { data: rawRecent } = await supabase
     .from('lesson_progress')
-    .select('lesson_id, course_id, last_watched_at, lessons(title), courses(id, title, thumbnail_url, total_duration, categories(name))')
+    .select('lesson_id, course_id, last_watched_at, lessons(title, deleted_at), courses(id, title, thumbnail_url, total_duration, categories(name))')
     .eq('user_id', user.id)
     .order('last_watched_at', { ascending: false })
-    .limit(1)
-  const recent = (rawRecent as unknown as {
+    .limit(5)
+  const recentRows = (rawRecent as unknown as {
     lesson_id: string
     course_id: string
     last_watched_at: string
-    lessons: { title: string } | null
+    lessons: { title: string; deleted_at: string | null } | null
     courses: {
       id: string; title: string; thumbnail_url: string | null
       total_duration: number; categories: { name: string } | null
     } | null
-  }[] | null)?.[0] ?? null
+  }[] | null) ?? []
+  const recent = recentRows.find((r) => r.lessons && r.lessons.deleted_at === null) ?? null
 
   // ── 수강 중인 강좌 목록 (active enrollments) ──
   const { data: rawActiveEnrollments } = await supabase
@@ -99,7 +101,7 @@ export default async function MyPage() {
   const progressMap: Record<string, number> = {}
   if (otherCourseIds.length > 0) {
     const [{ data: rawLessonCounts }, { data: rawCompletedCounts }] = await Promise.all([
-      supabase.from('lessons').select('course_id').in('course_id', otherCourseIds),
+      supabase.from('lessons').select('course_id').in('course_id', otherCourseIds).is('deleted_at', null),
       supabase.from('lesson_progress').select('course_id')
         .eq('user_id', user.id).eq('is_completed', true).in('course_id', otherCourseIds),
     ])
@@ -117,7 +119,7 @@ export default async function MyPage() {
   if (recent?.course_id) {
     const [{ count: totalLessons }, { count: doneLessons }] = await Promise.all([
       supabase.from('lessons').select('*', { count: 'exact', head: true })
-        .eq('course_id', recent.course_id),
+        .eq('course_id', recent.course_id).is('deleted_at', null),
       supabase.from('lesson_progress').select('*', { count: 'exact', head: true })
         .eq('user_id', user.id).eq('course_id', recent.course_id).eq('is_completed', true),
     ])
