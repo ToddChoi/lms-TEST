@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
   ChevronLeft, Calendar, MapPin, Clock, CheckCircle2, AlertCircle,
-  XCircle, ExternalLink, QrCode, Building2, Users,
+  XCircle, ExternalLink, QrCode, Building2, Users, Award,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { calculateRefund, type RefundPolicy } from '@/lib/offline/refund-policy'
@@ -70,6 +70,7 @@ interface AttendeeRow {
   department: string | null
   position: string | null
   cancelled_at: string | null
+  user_id: string | null
 }
 
 export default async function MyOfflineDetailPage({
@@ -106,19 +107,36 @@ export default async function MyOfflineDetailPage({
   // 단체 신청이면 회사 정보 + 참석자 명단 fetch (admin client — companies/attendees RLS)
   let companyName: string | null = null
   let attendees: AttendeeRow[] = []
+  const admin = createAdminClient()
   if (enrollment.applicant_type === 'corporate' && enrollment.company_id) {
-    const admin = createAdminClient()
     const { data: rawCompany } = await (admin as any)
       .from('companies').select('name').eq('id', enrollment.company_id).maybeSingle()
     companyName = (rawCompany as unknown as { name: string } | null)?.name ?? null
 
     const { data: rawAttendees } = await (admin as any)
       .from('offline_attendees')
-      .select('id, name, email, phone, department, position, cancelled_at')
+      .select('id, name, email, phone, department, position, cancelled_at, user_id')
       .eq('enrollment_id', enrollment.id)
       .order('created_at', { ascending: true })
     attendees = (rawAttendees as unknown as AttendeeRow[] | null) ?? []
   }
+
+  // 본인 수료증 (이 enrollment 안) — admin client (RLS owner read 도 OK 지만 통일)
+  const { data: rawCerts } = await (admin as any)
+    .from('offline_certificates')
+    .select('id, certificate_number, attendance_rate, issued_at, user_id, attendee_id')
+    .eq('enrollment_id', enrollment.id)
+  const myCerts = ((rawCerts as unknown as Array<{
+    id: string
+    certificate_number: string
+    attendance_rate: number
+    issued_at: string
+    user_id: string | null
+    attendee_id: string | null
+  }>) ?? []).filter((c) =>
+    c.user_id === user.id ||
+    (c.attendee_id && attendees.some((a) => a.id === c.attendee_id && a.user_id === user.id))
+  )
 
   const sess = enrollment.offline_sessions
   const prog = sess?.offline_programs
@@ -323,18 +341,46 @@ export default async function MyOfflineDetailPage({
           )}
       </section>
 
-      {/* QR 체크인 — Phase 5 */}
-      <section className="mb-6 rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-5">
-        <div className="flex items-start gap-3">
-          <QrCode className="mt-0.5 h-5 w-5 shrink-0 text-gray-400" />
-          <div className="flex-1">
-            <h2 className="text-sm font-bold text-gray-700">QR 출석 체크</h2>
-            <p className="mt-1 text-xs text-gray-500">
-              강좌 당일 현장에서 QR 코드를 스캔해 출석합니다. (Phase 5 — 곧 오픈)
-            </p>
+      {/* QR 출석 안내 */}
+      {enrollment.status === 'confirmed' && (
+        <section className="mb-6 rounded-2xl bg-accent-pale/30 p-5">
+          <div className="flex items-start gap-3">
+            <QrCode className="mt-0.5 h-5 w-5 shrink-0 text-accent" />
+            <div className="flex-1">
+              <h2 className="text-sm font-bold text-navy">QR 출석 체크</h2>
+              <p className="mt-1 text-xs text-gray-600">
+                강좌 당일 현장의 QR 코드를 스마트폰 카메라로 스캔하세요. 자동 로그인 확인 후 출석 처리됩니다.
+              </p>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
+
+      {/* 수료증 — 발급된 경우 */}
+      {myCerts.length > 0 && (
+        <section className="mb-6 rounded-2xl bg-white p-5 shadow-sm">
+          <h2 className="mb-3 flex items-center gap-1.5 text-sm font-bold text-navy">
+            <Award className="h-4 w-4 text-accent" /> 수료증
+          </h2>
+          {myCerts.map((c) => (
+            <div key={c.id} className="flex items-center justify-between gap-3 rounded-lg bg-green-50 p-3">
+              <div>
+                <p className="text-sm font-medium text-green-800">{c.certificate_number}</p>
+                <p className="mt-0.5 text-xs text-green-700">
+                  출석률 {c.attendance_rate}% · 발급 {formatDate(c.issued_at)}
+                </p>
+              </div>
+              <Link
+                href={`/api/offline/certificates/${c.id}/download`}
+                target="_blank"
+                className="inline-block rounded-lg bg-green-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-green-700"
+              >
+                PDF 다운로드
+              </Link>
+            </div>
+          ))}
+        </section>
+      )}
 
       {/* 취소 — pending_payment 또는 confirmed 만 */}
       {(enrollment.status === 'pending_payment' || enrollment.status === 'confirmed') && sess && (

@@ -31,6 +31,7 @@ export type EmailTemplate =
   | 'offline-payment-expired'
   | 'offline-cancellation-confirmed'
   | 'offline-waitlist-available'
+  | 'offline-certificate-issued'
 
 /** 사용자 알림 설정에서 OFF 인 경우 skip 할 키 매핑 */
 const PREFERENCE_KEY: Partial<Record<EmailTemplate, string>> = {
