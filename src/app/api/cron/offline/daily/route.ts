@@ -136,7 +136,32 @@ export async function GET(request: Request) {
     result.errors.push(`reminder stage: ${err instanceof Error ? err.message : 'unknown'}`)
   }
 
-  return NextResponse.json({ ok: true, ...result })
+  // ─── C. expire-waitlist-grace ───────────────────────────
+  // status='notified' AND reservation_deadline < now() → 'expired' + 다음 1순위 승격
+  let waitlistExpired = 0
+  try {
+    const { data: expiredWaitRows } = await (admin as any)
+      .from('offline_waitlist')
+      .update({ status: 'expired' })
+      .eq('status', 'notified')
+      .lt('reservation_deadline', nowIso)
+      .select('id, session_id')
+
+    const expiredWl = ((expiredWaitRows as unknown as Array<{ id: string; session_id: string }>) ?? [])
+    waitlistExpired = expiredWl.length
+
+    // 각 expired session 에 다음 순위 승격 (best effort)
+    const seenSessions = new Set<string>()
+    for (const w of expiredWl) {
+      if (seenSessions.has(w.session_id)) continue
+      seenSessions.add(w.session_id)
+      await promoteNextWaitlister(admin, w.session_id).catch(() => undefined)
+    }
+  } catch (err) {
+    result.errors.push(`waitlist grace stage: ${err instanceof Error ? err.message : 'unknown'}`)
+  }
+
+  return NextResponse.json({ ok: true, waitlist_expired_count: waitlistExpired, ...result })
 }
 
 export const POST = GET

@@ -7,6 +7,9 @@ import {
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { ConfirmInvoicePaymentButton } from '@/components/admin/offline/ConfirmInvoicePaymentButton'
+import { AdminCancelEnrollmentButton } from '@/components/admin/offline/AdminCancelEnrollmentButton'
+import { AdminCancelAttendeeButton } from '@/components/admin/offline/AdminCancelAttendeeButton'
+import { calculateRefund, type RefundPolicy } from '@/lib/offline/refund-policy'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: '신청 상세' }
@@ -38,6 +41,7 @@ interface EnrollmentRow {
   invoice_paid_confirmed_at: string | null
   stripe_session_id: string | null
   stripe_payment_intent_id: string | null
+  refund_policy_snapshot: RefundPolicy
   applicant: { name: string | null; email: string | null } | null
   offline_sessions: {
     id: string
@@ -88,6 +92,7 @@ export default async function AdminEnrollmentDetailPage({
       refund_amount, refund_rate, notes,
       company_id, company_contact_name, company_contact_email, company_contact_phone,
       invoice_paid_confirmed_at, stripe_session_id, stripe_payment_intent_id,
+      refund_policy_snapshot,
       applicant:profiles!offline_enrollments_applicant_user_id_fkey(name, email),
       offline_sessions (
         id, title, start_date, end_date, location_name, location_address,
@@ -122,6 +127,23 @@ export default async function AdminEnrollmentDetailPage({
   const sameDay = sess && sess.start_date === sess.end_date
   const canConfirmInvoice =
     enrollment.payment_method === 'invoice' && enrollment.status === 'pending_payment'
+  const canCancel = ['pending_payment', 'confirmed'].includes(enrollment.status)
+  const cancelPreview = canCancel && sess
+    ? enrollment.status === 'pending_payment'
+      ? { rate: 0 as const, amount: 0, paymentMethod: enrollment.payment_method }
+      : (() => {
+          const r = calculateRefund(
+            enrollment.total_amount, sess.start_date, enrollment.refund_policy_snapshot
+          )
+          return { rate: r.rate, amount: r.amount, paymentMethod: enrollment.payment_method }
+        })()
+    : null
+  // 부분 취소 가능 — 강좌 시작 전 + corporate + confirmed
+  const canPartialCancel =
+    enrollment.applicant_type === 'corporate' &&
+    enrollment.status === 'confirmed' &&
+    sess &&
+    new Date(sess.start_date) > new Date()
 
   return (
     <div className="flex flex-col gap-6">
@@ -152,12 +174,21 @@ export default async function AdminEnrollmentDetailPage({
               인원: {enrollment.attendee_count}명
             </p>
           </div>
-          {canConfirmInvoice && (
-            <ConfirmInvoicePaymentButton
-              enrollmentId={enrollment.id}
-              amount={enrollment.total_amount}
-            />
-          )}
+          <div className="flex flex-col gap-2 items-end">
+            {canConfirmInvoice && (
+              <ConfirmInvoicePaymentButton
+                enrollmentId={enrollment.id}
+                amount={enrollment.total_amount}
+              />
+            )}
+            {canCancel && cancelPreview && (
+              <AdminCancelEnrollmentButton
+                enrollmentId={enrollment.id}
+                status={enrollment.status as 'pending_payment' | 'confirmed'}
+                preview={cancelPreview}
+              />
+            )}
+          </div>
         </div>
       </section>
 
@@ -242,6 +273,7 @@ export default async function AdminEnrollmentDetailPage({
                   <th className="px-2 py-2 text-left font-semibold">부서</th>
                   <th className="px-2 py-2 text-left font-semibold">직책</th>
                   <th className="px-2 py-2 text-left font-semibold">상태</th>
+                  {canPartialCancel && <th className="px-2 py-2 text-right font-semibold">취소</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -260,6 +292,17 @@ export default async function AdminEnrollmentDetailPage({
                         <span className="text-green-600">참석</span>
                       )}
                     </td>
+                    {canPartialCancel && (
+                      <td className="px-2 py-2 text-right">
+                        {!a.cancelled_at && (
+                          <AdminCancelAttendeeButton
+                            enrollmentId={enrollment.id}
+                            attendeeId={a.id}
+                            attendeeName={a.name}
+                          />
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
