@@ -7,6 +7,8 @@ import {
   XCircle, ExternalLink, QrCode, Building2, Users,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
+import { calculateRefund, type RefundPolicy } from '@/lib/offline/refund-policy'
+import { OfflineCancelButton } from '@/components/offline/OfflineCancelButton'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: '신청 상세' }
@@ -46,6 +48,7 @@ interface EnrollmentRow {
   company_contact_email: string | null
   company_contact_phone: string | null
   invoice_paid_confirmed_at: string | null
+  refund_policy_snapshot: RefundPolicy
   offline_sessions: {
     id: string
     title: string | null
@@ -87,7 +90,7 @@ export default async function MyOfflineDetailPage({
       payment_due_at, paid_at, cancelled_at, refunded_at,
       refund_amount, refund_rate, created_at, notes,
       company_id, company_contact_name, company_contact_email,
-      company_contact_phone, invoice_paid_confirmed_at,
+      company_contact_phone, invoice_paid_confirmed_at, refund_policy_snapshot,
       offline_sessions (
         id, title, start_date, end_date, capacity,
         location_name, location_address, location_url,
@@ -333,19 +336,42 @@ export default async function MyOfflineDetailPage({
         </div>
       </section>
 
-      {/* 취소 — Phase 4 */}
-      {enrollment.status === 'confirmed' && (
+      {/* 취소 — pending_payment 또는 confirmed 만 */}
+      {(enrollment.status === 'pending_payment' || enrollment.status === 'confirmed') && sess && (
         <section className="rounded-2xl bg-white p-5 shadow-sm">
-          <h2 className="mb-2 text-sm font-bold text-navy">신청 취소</h2>
-          <p className="text-xs text-gray-500">
-            취소 기능은 Phase 4 (대기열 + 환불) 에서 활성화됩니다. 긴급 취소가 필요하면 운영팀에 문의해주세요.
-          </p>
-          <Link
-            href="/contact"
-            className="mt-3 inline-block rounded-lg border border-gray-200 px-4 py-1.5 text-xs text-gray-600 hover:border-accent hover:text-accent"
-          >
-            문의하기
-          </Link>
+          <h2 className="mb-3 text-sm font-bold text-navy">신청 취소</h2>
+          {enrollment.status === 'pending_payment' ? (
+            <p className="mb-3 text-xs text-gray-600">
+              결제 대기 중인 신청은 환불 절차 없이 즉시 취소됩니다.
+            </p>
+          ) : (
+            <p className="mb-3 text-xs text-gray-600">
+              회차별 환불 정책에 따라 환불액이 자동 계산됩니다.
+              {enrollment.payment_method === 'card'
+                ? ' 카드 자동 환불 (영업일 3-7일).'
+                : ' 세금계산서 결제는 운영팀 수동 환불.'}
+            </p>
+          )}
+          <OfflineCancelButton
+            enrollmentId={enrollment.id}
+            status={enrollment.status as 'pending_payment' | 'confirmed'}
+            preview={
+              enrollment.status === 'pending_payment'
+                ? { rate: 0, amount: 0, paymentMethod: enrollment.payment_method }
+                : (() => {
+                    const r = calculateRefund(
+                      enrollment.total_amount,
+                      sess.start_date,
+                      enrollment.refund_policy_snapshot
+                    )
+                    return {
+                      rate: r.rate,
+                      amount: r.amount,
+                      paymentMethod: enrollment.payment_method,
+                    }
+                  })()
+            }
+          />
         </section>
       )}
 
