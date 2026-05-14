@@ -26,6 +26,7 @@ import {
   Calendar,
   ClipboardCheck,
   Clock,
+  CheckSquare,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -87,8 +88,9 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/offline/sessions',    label: '회차 일정',      icon: Calendar },
       { href: '/admin/offline/enrollments', label: '신청·결제 현황', icon: ClipboardCheck },
       { href: '/admin/offline/waitlist',    label: '대기열 관리',    icon: Clock },
+      { href: '/admin/offline/attendance',  label: '출결 관리',      icon: CheckSquare },
       { href: '/admin/offline/settings',    label: '오프라인 설정',  icon: Settings },
-      // 출결/수료증 — Phase 5 에서 추가
+      // 수료증 — Phase 5 2/3 에서 추가
     ],
   },
   {
