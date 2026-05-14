@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { WaitlistButton } from '@/components/offline/WaitlistButton'
 import {
   Calendar, MapPin, Users, Award, CheckCircle2,
   AlertCircle, ChevronLeft,
@@ -88,6 +90,7 @@ export default async function OfflineProgramDetailPage({
 
   const supabase = createClient()
   const today = dayjs().format('YYYY-MM-DD')
+  const { data: { user } } = await supabase.auth.getUser()
 
   // 진행 예정 / 진행 중 회차만 (지난 회차는 별도)
   const { data: rawSessions } = await supabase
@@ -99,6 +102,20 @@ export default async function OfflineProgramDetailPage({
     .in('status', ['open', 'closed'])
     .order('start_date', { ascending: true })
   const sessions = (rawSessions as unknown as SessionRow[] | null) ?? []
+
+  // 본인의 활성 대기열 (waiting / notified) — admin client (waitlist 가 admin only RLS)
+  let myWaitlists: Record<string, string> = {}  // sessionId → waitlistId
+  if (user && sessions.length > 0) {
+    const admin = createAdminClient()
+    const { data: rawWaitlists } = await (admin as any)
+      .from('offline_waitlist')
+      .select('id, session_id')
+      .eq('user_id', user.id)
+      .in('session_id', sessions.map((s) => s.id))
+      .in('status', ['waiting', 'notified'])
+    const wl = (rawWaitlists as unknown as Array<{ id: string; session_id: string }> | null) ?? []
+    myWaitlists = Object.fromEntries(wl.map((w) => [w.session_id, w.id]))
+  }
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
@@ -267,18 +284,21 @@ export default async function OfflineProgramDetailPage({
                           >
                             신청하기 →
                           </Link>
+                        ) : isClosed ? (
+                          <WaitlistButton
+                            sessionId={s.id}
+                            existingWaitlistId={myWaitlists[s.id] ?? null}
+                            redirectTo={`/offline/${program.slug}`}
+                            isLoggedIn={!!user}
+                          />
                         ) : (
                           <button
                             type="button"
                             disabled
-                            title={
-                              isClosed
-                                ? '마감된 회차입니다'
-                                : '무료 회차 신청은 곧 오픈됩니다 (현재는 유료 카드 결제만 지원)'
-                            }
+                            title="무료 회차 신청은 곧 오픈됩니다"
                             className="cursor-not-allowed rounded-lg bg-gray-200 px-3 py-1 text-[11px] font-medium text-gray-500"
                           >
-                            {isClosed ? '마감' : '준비 중'}
+                            준비 중
                           </button>
                         )}
                       </div>

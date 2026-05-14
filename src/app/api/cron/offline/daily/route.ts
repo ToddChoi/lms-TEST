@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { sendEmail } from '@/lib/email/send'
 import { OfflinePaymentReminderEmail } from '@/lib/email/templates/offline-payment-reminder'
 import { OfflinePaymentExpiredEmail } from '@/lib/email/templates/offline-payment-expired'
+import { promoteNextWaitlister } from '@/lib/offline/waitlist-promote'
 import { formatDate } from '@/lib/utils'
 
 export const runtime = 'nodejs'
@@ -58,7 +59,7 @@ export async function GET(request: Request) {
       .lt('payment_due_at', nowIso)
       .is('deleted_at', null)
       .select(`
-        id, applicant_user_id, company_contact_email, company_contact_name,
+        id, session_id, applicant_user_id, company_contact_email, company_contact_name,
         offline_sessions ( title, start_date, end_date,
           offline_programs ( title, slug )
         )
@@ -70,12 +71,17 @@ export async function GET(request: Request) {
       const expired = (expiredRows as any[]) ?? []
       result.expired_count = expired.length
 
-      // payment_expired 메일 (best effort)
+      // payment_expired 메일 (best effort) + 대기열 승격
+      // pending_payment 만료는 confirmed 가 아니라 정원에 영향 X — 승격 불필요.
+      // 단 expired 후에도 대기열 처리 일관성 위해 한번 시도 (잔여석 있으면 승격, 없으면 무동작).
       for (const e of expired) {
         try {
           await dispatchExpiredEmail(admin, e)
         } catch (mailErr) {
           console.warn('[cron offline daily] expired email failed:', e.id, mailErr)
+        }
+        if (e.session_id) {
+          await promoteNextWaitlister(admin, e.session_id).catch(() => undefined)
         }
       }
     }

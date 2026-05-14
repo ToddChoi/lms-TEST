@@ -5,6 +5,7 @@ import { getStripeServer } from '@/lib/stripe'
 import { sendEmail } from '@/lib/email/send'
 import { OfflineCancellationConfirmedEmail } from '@/lib/email/templates/offline-cancellation-confirmed'
 import { calculateRefund, type RefundPolicy } from '@/lib/offline/refund-policy'
+import { promoteNextWaitlister } from '@/lib/offline/waitlist-promote'
 import { formatDate } from '@/lib/utils'
 
 export const runtime = 'nodejs'
@@ -104,6 +105,9 @@ export async function POST(
       return NextResponse.json({ error: updateErr.message }, { status: 500 })
     }
 
+    // pending 취소는 confirmed 가 아니라 정원에 영향 없음 (자리 차감 안 했었음).
+    // → 대기열 승격 X.
+
     // 메일은 발송하지만 환불 0%
     await dispatchCancellationEmail(admin, enrollment, 0, 0).catch(() => undefined)
 
@@ -193,6 +197,20 @@ export async function POST(
 
   // cancellation_confirmed 메일
   await dispatchCancellationEmail(admin, enrollment, refund.rate, refund.amount).catch(() => undefined)
+
+  // 자리 발생 — 대기열 1순위 자동 승격 (best-effort, 실패해도 취소는 유지)
+  if (enrollment.offline_sessions) {
+    const sessionId = (
+      await admin
+        .from('offline_enrollments')
+        .select('session_id')
+        .eq('id', enrollment.id)
+        .maybeSingle()
+    ).data as unknown as { session_id: string } | null
+    if (sessionId) {
+      await promoteNextWaitlister(admin, sessionId.session_id).catch(() => undefined)
+    }
+  }
 
   return NextResponse.json({
     ok: true,
