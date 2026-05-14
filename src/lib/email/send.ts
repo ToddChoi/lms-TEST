@@ -27,6 +27,8 @@ export type EmailTemplate =
   | 'contact-user'
   | 'offline-application-received'
   | 'offline-payment-confirmed'
+  | 'offline-payment-reminder'
+  | 'offline-payment-expired'
 
 /** 사용자 알림 설정에서 OFF 인 경우 skip 할 키 매핑 */
 const PREFERENCE_KEY: Partial<Record<EmailTemplate, string>> = {
