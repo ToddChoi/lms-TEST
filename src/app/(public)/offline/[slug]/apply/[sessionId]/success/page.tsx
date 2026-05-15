@@ -30,7 +30,7 @@ export default function ApplySuccessPage({
           <div className="flex items-start gap-2">
             <Mail className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
             <span>
-              결제 완료 알림 이메일이 곧 발송됩니다. (Phase 6 알림 자동화 — 곧 오픈)
+              자리 확정 안내 이메일이 잠시 후 발송됩니다. 받은편지함을 확인해주세요.
             </span>
           </div>
         </div>

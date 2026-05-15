@@ -295,10 +295,10 @@ export default async function OfflineProgramDetailPage({
                           <button
                             type="button"
                             disabled
-                            title="무료 회차 신청은 곧 오픈됩니다"
+                            title="무료 회차는 운영팀 문의로 신청 가능합니다"
                             className="cursor-not-allowed rounded-lg bg-gray-200 px-3 py-1 text-[11px] font-medium text-gray-500"
                           >
-                            준비 중
+                            문의 신청
                           </button>
                         )}
                       </div>
@@ -309,8 +309,8 @@ export default async function OfflineProgramDetailPage({
             )}
 
             <p className="mt-4 rounded-lg bg-blue-50 p-3 text-[11px] leading-relaxed text-blue-700">
-              <strong>📢 안내</strong>: 카드 결제로 즉시 신청 가능합니다.
-              세금계산서·기업 단체 신청은 곧 오픈됩니다.
+              <strong>📢 안내</strong>: 신청 폼에서 결제 방식 (카드 / 세금계산서) 과
+              신청 유형 (개인 / 기업 단체) 을 선택할 수 있습니다.
             </p>
           </div>
         </aside>

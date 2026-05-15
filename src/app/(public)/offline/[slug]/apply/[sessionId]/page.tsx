@@ -81,26 +81,39 @@ export default async function ApplyPage({
     return (
       <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="rounded-2xl border border-blue-200 bg-blue-50 p-6 text-center">
-          <p className="text-sm font-semibold text-blue-700">무료 회차 신청은 곧 오픈됩니다.</p>
-          <p className="mt-1 text-xs text-blue-600">현재 Phase 2 는 유료 회차 카드 결제만 지원.</p>
-          <Link
-            href={`/offline/${program.slug}`}
-            className="mt-4 inline-block rounded-lg bg-accent px-4 py-2 text-xs font-medium text-white hover:bg-accent-light"
-          >
-            프로그램 상세로 돌아가기
-          </Link>
+          <p className="text-sm font-semibold text-blue-700">
+            무료 회차는 운영팀 문의로 신청 가능합니다.
+          </p>
+          <p className="mt-1 text-xs text-blue-600">
+            아래 문의 페이지로 이동하시거나 운영팀에 직접 연락해주세요.
+          </p>
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+            <Link
+              href="/contact"
+              className="inline-block rounded-lg bg-accent px-4 py-2 text-xs font-medium text-white hover:bg-accent-light"
+            >
+              문의하기
+            </Link>
+            <Link
+              href={`/offline/${program.slug}`}
+              className="inline-block rounded-lg border border-gray-200 bg-white px-4 py-2 text-xs text-gray-600 hover:bg-silver"
+            >
+              프로그램 상세로 돌아가기
+            </Link>
+          </div>
         </div>
       </div>
     )
   }
 
-  // 본인 프로필 (이름 / 이메일)
+  // 본인 프로필 (이름 / 이메일 / role) — role 은 P2-4c canCorporate 계산용.
   const { data: rawProfile } = await supabase
-    .from('profiles').select('name, email, phone').eq('id', user.id).single()
+    .from('profiles').select('name, email, phone, role').eq('id', user.id).single()
   const profile = rawProfile as unknown as {
     name: string | null
     email: string | null
     phone: string | null
+    role: string
   } | null
 
   // 본인이 협약기업의 매니저 / 멤버인지 확인 — admin client (companies/company_members
@@ -126,6 +139,14 @@ export default async function ApplyPage({
     } | null
   } | null
   const companyForCorporate = membership?.companies ?? null
+
+  // P2-4c (2026-05-15) — corporate 신청 권한:
+  //   회사 매니저 (is_manager=true) OR 서비스 admin/superadmin/org_admin.
+  // 일반 멤버는 단체 신청 불가 — 매니저에게 요청 안내.
+  const isServiceAdmin = profile?.role
+    ? ['admin', 'superadmin', 'org_admin'].includes(profile.role)
+    : false
+  const canCorporate = !!(membership?.is_manager) || isServiceAdmin
 
   // 이미 본인이 이 회차에 active enrollment (pending_payment OR confirmed) 가 있는지
   const { data: rawExisting } = await supabase
@@ -204,6 +225,7 @@ export default async function ApplyPage({
           applicantEmail={profile?.email ?? user.email ?? ''}
           applicantPhone={profile?.phone ?? ''}
           company={companyForCorporate}
+          canCorporate={canCorporate}
         />
       )}
     </div>

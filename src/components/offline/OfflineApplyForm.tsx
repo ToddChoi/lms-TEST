@@ -28,6 +28,12 @@ interface Props {
   applicantPhone: string
   /** 본인이 협약기업 멤버면 자동 입력. 없으면 null (단체 신청 비활성) */
   company: CompanyInfo | null
+  /**
+   * P2-4c (2026-05-15): 단체 신청 권한.
+   * 회사 매니저 (is_manager=true) 또는 서비스 admin/superadmin/org_admin 만 true.
+   * false 면 corporate 옵션 disabled + 안내 (회사 매니저에게 요청).
+   */
+  canCorporate: boolean
 }
 
 type ApplicantType = 'individual' | 'corporate'
@@ -53,6 +59,7 @@ export function OfflineApplyForm({
   applicantEmail,
   applicantPhone,
   company,
+  canCorporate,
 }: Props) {
   const [type, setType] = useState<ApplicantType>('individual')
   const [method, setMethod] = useState<PaymentMethod>('card')
@@ -69,7 +76,8 @@ export function OfflineApplyForm({
   // 단체 — 참석자 (default 1명 빈 row)
   const [attendees, setAttendees] = useState<AttendeeRow[]>([emptyAttendee()])
 
-  const corporateAvailable = !!company
+  // P2-4c — 회사 멤버 + 권한 (매니저 / admin) 둘 다 만족해야 단체 신청 가능.
+  const corporateAvailable = !!company && canCorporate
 
   // 단체 신청 시 결제 방식 강제 invoice 권장이지만 카드도 허용
   // (단체 카드 결제도 가능 — 한 번에 합산 금액)
@@ -236,10 +244,18 @@ export function OfflineApplyForm({
             description={
               corporateAvailable
                 ? `${company!.name} — 다수 참석자 + 카드 / 세금계산서`
-                : '협약 기업 매니저에게 문의'
+                : !company
+                  ? '협약 기업 매니저에게 문의'
+                  : '회사 매니저만 단체 신청 가능 — 매니저에게 요청해주세요'
             }
           />
         </div>
+        {company && !canCorporate && (
+          <p className="mt-3 rounded-lg bg-amber-50 p-3 text-[11px] leading-relaxed text-amber-700">
+            <strong>📢 안내</strong>: <strong>{company.name}</strong> 의 멤버이지만 단체 신청
+            권한이 없습니다. 회사 매니저에게 신청을 요청하시거나 운영팀에 문의해주세요.
+          </p>
+        )}
       </section>
 
       {/* 개인 — 신청자 정보 */}

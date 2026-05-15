@@ -241,10 +241,13 @@ async function dispatchPaymentConfirmedEmail(
   admin: ReturnType<typeof createAdminClient>,
   enrollmentId: string
 ) {
+  // P2-4a (2026-05-15) — applicant_type / company_contact_email 도 조회.
+  // 기업 카드 결제 시 회사 담당자 메일 우선 (invoice admin confirm 경로와 동일 정책).
   const { data: rawEnrollment } = await admin
     .from('offline_enrollments')
     .select(`
-      id, applicant_user_id,
+      id, applicant_user_id, applicant_type,
+      company_contact_name, company_contact_email,
       offline_sessions (
         title, start_date, end_date, location_name, location_address,
         offline_programs ( title )
@@ -255,6 +258,9 @@ async function dispatchPaymentConfirmedEmail(
   const enrollment = rawEnrollment as unknown as {
     id: string
     applicant_user_id: string
+    applicant_type: 'individual' | 'corporate'
+    company_contact_name: string | null
+    company_contact_email: string | null
     offline_sessions: {
       title: string | null
       start_date: string
@@ -272,7 +278,18 @@ async function dispatchPaymentConfirmedEmail(
     .eq('id', enrollment.applicant_user_id)
     .maybeSingle()
   const profile = rawProfile as unknown as { email: string | null; name: string | null } | null
-  if (!profile?.email) return
+
+  // 수신자 우선순위 — 기업이면 company_contact 우선, 없으면 applicant profile fallback.
+  const recipientEmail =
+    enrollment.applicant_type === 'corporate'
+      ? (enrollment.company_contact_email ?? profile?.email)
+      : profile?.email
+  const recipientName =
+    enrollment.applicant_type === 'corporate'
+      ? (enrollment.company_contact_name ?? profile?.name)
+      : profile?.name
+
+  if (!recipientEmail) return
 
   const sess = enrollment.offline_sessions
   const programTitle = sess.offline_programs?.title ?? '오프라인 교육'
@@ -282,12 +299,12 @@ async function dispatchPaymentConfirmedEmail(
       : `${formatDate(sess.start_date)} ~ ${formatDate(sess.end_date)}`
 
   const emailRes = await sendEmail({
-    to: profile.email,
+    to: recipientEmail,
     subject: `[자리 확정] ${programTitle}`,
     template: 'offline-payment-confirmed',
     userId: enrollment.applicant_user_id,
     react: OfflinePaymentConfirmedEmail({
-      name: profile.name,
+      name: recipientName ?? null,
       programTitle,
       sessionLabel: sess.title ?? '',
       sessionPeriod,

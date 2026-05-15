@@ -125,18 +125,42 @@ export async function POST(request: Request) {
     }
     attendeeCount = attendees.length
 
-    // 본인이 그 회사 멤버인지 — admin client (company_members admin-only RLS 우회).
-    // user.id 본인 기준으로만 filter 하므로 안전.
+    // P2-4c (2026-05-15) — 권한 정책 강화.
+    // 일반 회사 멤버도 corporate (최대 500명, 후불 invoice 결제) 신청 가능했던 문제 차단.
+    //
+    // 정책: corporate 신청은 다음 중 하나만 가능 —
+    //   1) 회사 매니저 (company_members.is_manager = true)
+    //   2) 서비스 admin / superadmin / org_admin (profile.role)
+    // 일반 멤버는 카드 결제 개인 신청만 가능. 단체 신청 필요 시 회사 매니저에게 요청.
     const admin = createAdminClient()
     const { data: rawMembership } = await (admin as any)
       .from('company_members')
-      .select('company_id')
+      .select('company_id, is_manager')
       .eq('user_id', user.id)
       .eq('company_id', body.company_id)
       .maybeSingle()
-    if (!rawMembership) {
+    const membership = rawMembership as { company_id: string; is_manager: boolean } | null
+    if (!membership) {
       return NextResponse.json(
         { error: '해당 회사의 멤버가 아닙니다. 운영팀에 문의해주세요.' },
+        { status: 403 }
+      )
+    }
+
+    // 권한: is_manager OR 서비스 admin/superadmin/org_admin 중 하나
+    const { data: rawProfile } = await admin
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle()
+    const role = (rawProfile as { role: string } | null)?.role
+    const isServiceAdmin = role && ['admin', 'superadmin', 'org_admin'].includes(role)
+    if (!membership.is_manager && !isServiceAdmin) {
+      return NextResponse.json(
+        {
+          error:
+            '기업 단체 신청은 회사 매니저 또는 운영자만 가능합니다. 회사 매니저에게 신청을 요청하거나 운영팀에 문의해주세요.',
+        },
         { status: 403 }
       )
     }
