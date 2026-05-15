@@ -1,6 +1,22 @@
-import { NextRequest, NextResponse } from 'next/server'
+'use server'
+
+/**
+ * Server Actions — 오프라인 수료증 발급.
+ *
+ * Phase B PoC: Route Handler (POST /api/admin/offline/certificates/issue) 를
+ * Server Action 으로 마이그. form action 으로 직접 호출 → fetch + JSON parse 제거.
+ *
+ * 패턴 정립 (다른 form 마이그할 때 참고):
+ *   1. 'use server' 디렉티브 (파일 최상단)
+ *   2. action signature: async function(prevState, formData) → state
+ *   3. requireAdmin() 가드는 그대로 — Server Action 도 Route Handler 와 동일하게 RLS 적용
+ *   4. revalidatePath() 로 페이지 데이터 재갱신 (router.refresh() 대체)
+ *   5. 결과 객체에 ok / errors 분기 → form 측 state 로 표시
+ */
+
 import { renderToBuffer } from '@react-pdf/renderer'
 import React from 'react'
+import { revalidatePath } from 'next/cache'
 import { requireAdmin } from '@/app/api/admin/_guard'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendEmail } from '@/lib/email/send'
@@ -9,44 +25,45 @@ import { OfflineCertificatePDF } from '@/components/offline/OfflineCertificatePD
 import { attendanceRateFromRows } from '@/lib/offline/attendance-rate'
 import { formatDate } from '@/lib/utils'
 
-export const runtime = 'nodejs'
-export const dynamic = 'force-dynamic'
-export const maxDuration = 60  // PDF 생성 + Storage upload 시간 여유
-
-interface PostBody {
-  session_id?: string
-  /** 강제 발급 (수료 기준 미달이어도) — 운영 권한 */
-  force?: boolean
+export interface IssueState {
+  ok: boolean
+  issued: number
+  skipped_existing: number
+  skipped_low_rate: number
+  errors: string[]
+  /** 일반 에러 메시지 (권한 / validation 등). null 이면 정상 처리. */
+  error: string | null
 }
 
-/**
- * 수료증 일괄 발급 — POST /api/admin/offline/certificates/issue
- *
- * 흐름:
- *   1. session_id → 회차 + 프로그램 + completion_attendance_rate 가져오기
- *   2. 회차의 일자 수 (totalDays) 계산
- *   3. confirmed enrollment 의 모든 참석자 (개인 + 단체 attendees) 추출
- *   4. 참석자별 출석률 계산 (offline_attendance LEFT JOIN)
- *   5. 출석률 ≥ completion_attendance_rate 이거나 force=true 인 사람만 발급
- *   6. 이미 발급된 (offline_certificates) 사람은 skip (멱등)
- *   7. PDF 생성 → Storage 'certificates' bucket 업로드 → URL 저장
- *   8. offline_certificates INSERT + certificate_issued 메일
- *
- * 응답: { ok, issued: N, skipped_existing: N, skipped_low_rate: N, errors[] }
- */
-export async function POST(req: NextRequest) {
-  const { guard } = await requireAdmin()
-  if (guard) return guard
+export const initialIssueState: IssueState = {
+  ok: false,
+  issued: 0,
+  skipped_existing: 0,
+  skipped_low_rate: 0,
+  errors: [],
+  error: null,
+}
 
-  const body = (await req.json().catch(() => ({}))) as PostBody
-  const { session_id, force = false } = body
+export async function issueCertificatesAction(
+  _prevState: IssueState,
+  formData: FormData,
+): Promise<IssueState> {
+  // ── 권한 ────────────────────────────────────────
+  const { guard } = await requireAdmin()
+  if (guard) {
+    return { ...initialIssueState, error: '권한이 없습니다.' }
+  }
+
+  // ── 입력 ────────────────────────────────────────
+  const session_id = String(formData.get('session_id') ?? '')
+  const force = formData.get('force') === 'on'
   if (!session_id) {
-    return NextResponse.json({ error: 'session_id 필수' }, { status: 400 })
+    return { ...initialIssueState, error: '회차를 선택해주세요.' }
   }
 
   const admin = createAdminClient()
 
-  // 회차 + 프로그램 fetch
+  // ── 회차 + 프로그램 fetch ──────────────────────
   const { data: rawSession } = await (admin as any)
     .from('offline_sessions')
     .select(`
@@ -71,23 +88,23 @@ export async function POST(req: NextRequest) {
   } | null
 
   if (!session || !session.offline_programs) {
-    return NextResponse.json({ error: '회차를 찾을 수 없습니다.' }, { status: 404 })
+    return { ...initialIssueState, error: '회차를 찾을 수 없습니다.' }
   }
 
   const program = session.offline_programs
   const cutoffRate = program.completion_attendance_rate
 
-  // 회차 일자 수
+  // ── 회차 일자 수 ───────────────────────────────
   const { count: dayCount } = await (admin as any)
     .from('offline_session_days')
     .select('*', { count: 'exact', head: true })
     .eq('session_id', session.id)
   const totalDays = dayCount ?? 0
   if (totalDays === 0) {
-    return NextResponse.json({ error: '회차 일자가 없습니다.' }, { status: 400 })
+    return { ...initialIssueState, error: '회차 일자가 없습니다.' }
   }
 
-  // confirmed enrollment 의 모든 참석자 (roster)
+  // ── confirmed enrollments + attendees + attendance + 기존 cert ──
   const { data: rawEnrollments } = await (admin as any)
     .from('offline_enrollments')
     .select(`
@@ -120,7 +137,6 @@ export async function POST(req: NextRequest) {
     user_id: string | null
   }>) ?? []
 
-  // 모든 출석 기록
   const enrollmentIds = enrollments.map((e) => e.id)
   const { data: rawAtt } = enrollmentIds.length
     ? await (admin as any)
@@ -135,7 +151,6 @@ export async function POST(req: NextRequest) {
     status: 'present' | 'absent' | 'late'
   }>) ?? []
 
-  // 이미 발급된 cert
   const { data: rawExisting } = enrollmentIds.length
     ? await (admin as any)
         .from('offline_certificates')
@@ -161,15 +176,15 @@ export async function POST(req: NextRequest) {
       ? formatDate(session.start_date)
       : `${formatDate(session.start_date)} ~ ${formatDate(session.end_date)}`
 
-  const result = {
+  const result: IssueState = {
     ok: true,
     issued: 0,
     skipped_existing: 0,
     skipped_low_rate: 0,
-    errors: [] as string[],
+    errors: [],
+    error: null,
   }
 
-  // 참석자별 처리
   type Recipient = {
     enrollmentId: string
     userId: string | null
@@ -202,13 +217,11 @@ export async function POST(req: NextRequest) {
   }
 
   for (const r of recipients) {
-    // 이미 발급?
     if (isAlreadyIssued(r.enrollmentId, r.userId, r.attendeeId)) {
       result.skipped_existing++
       continue
     }
 
-    // 출석률
     const rows = attendance.filter((a) =>
       a.enrollment_id === r.enrollmentId &&
       ((r.attendeeId && a.attendee_id === r.attendeeId) ||
@@ -222,14 +235,12 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-      // 수료번호 — OFF-YYYY-{slug 4자}-{rand 4}
       const year = new Date().getFullYear()
       const slugPart = program.slug.replace(/[^a-z0-9]/gi, '').slice(0, 4).toUpperCase().padEnd(4, 'X')
       const randPart = Math.random().toString(36).slice(2, 6).toUpperCase()
       const certificateNumber = `OFF-${year}-${slugPart}-${randPart}`
       const issuedAt = new Date().toISOString()
 
-      // PDF 생성
       const buffer = await renderToBuffer(
         React.createElement(OfflineCertificatePDF, {
           recipientName: r.name,
@@ -242,7 +253,6 @@ export async function POST(req: NextRequest) {
         }) as React.ReactElement
       )
 
-      // Storage 업로드 (certificates bucket — private)
       const filePath = `offline/${session.id}/${certificateNumber}.pdf`
       const { error: uploadErr } = await (admin as any)
         .storage.from('certificates')
@@ -255,7 +265,6 @@ export async function POST(req: NextRequest) {
         continue
       }
 
-      // offline_certificates INSERT
       const { data: rawCert, error: insertErr } = await (admin as any)
         .from('offline_certificates')
         .insert({
@@ -267,7 +276,7 @@ export async function POST(req: NextRequest) {
           certificate_number: certificateNumber,
           attendance_rate: att.rate,
           issued_at: issuedAt,
-          pdf_url: filePath,  // path 만 저장 (signed URL 은 다운로드 시 생성)
+          pdf_url: filePath,
         })
         .select('id')
         .single()
@@ -280,7 +289,6 @@ export async function POST(req: NextRequest) {
       const certId = (rawCert as { id: string }).id
       result.issued++
 
-      // 메일 (best-effort)
       if (r.email) {
         try {
           await sendEmail({
@@ -316,5 +324,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json(result)
+  // 발급 완료 후 페이지 재갱신 (router.refresh() 대체)
+  revalidatePath('/admin/offline/certificates')
+
+  return result
 }
