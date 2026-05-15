@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import * as Sentry from '@sentry/nextjs'
 
 export default function PublicError({
   error,
@@ -10,6 +11,7 @@ export default function PublicError({
   reset: () => void
 }) {
   useEffect(() => {
+    Sentry.captureException(error)
     console.error('[PublicLayout Error]', error)
   }, [error])
 

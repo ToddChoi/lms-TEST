@@ -32,3 +32,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# sentry
+.sentryclirc
+
+# local dev logs
+ingrow-start.log
+ingrow-start.err

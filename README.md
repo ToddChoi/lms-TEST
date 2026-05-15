@@ -258,10 +258,41 @@ src/
 
 - **로그**: Vercel Dashboard → Logs (실시간) / Build Logs
 - **Supabase**: Dashboard → Logs (Postgres, API, Auth)
-- **에러 추적**: 미도입 — Sentry 등 도입은 향후 백로그
+- **에러 추적**: **Sentry** (`@sentry/nextjs`) — 아래 §8-1 참조
 - **이메일 발송 로그**: `notification_logs` 테이블 (status, error)
 - **오프라인 알림 큐**: `offline_notifications` 테이블 (Phase 6 cron 도입 시 활용)
 - **감사 로그**: `offline_audit_log` (admin/superadmin 만 조회)
+
+### 8-1. Sentry 셋업
+
+`@sentry/nextjs` 도입 — DSN 미설정 시 자동 비활성 (앱 정상 동작).
+
+**활성화 단계**:
+1. https://sentry.io 프로젝트 생성 → DSN 복사.
+2. `.env.local` (로컬) / Vercel 환경변수 (운영) 에 등록:
+   ```
+   NEXT_PUBLIC_SENTRY_DSN=https://...@...ingest.sentry.io/...
+   SENTRY_ENVIRONMENT=production    # 운영 / preview / development
+   ```
+3. (선택, source map 업로드 — 운영 디버깅에 권장):
+   ```
+   SENTRY_AUTH_TOKEN=sntrys_...     # Sentry Settings → Auth Tokens (project:releases scope)
+   SENTRY_ORG=your-org-slug
+   SENTRY_PROJECT=your-project-slug
+   ```
+4. 첫 배포 후 Sentry 대시보드에서 "Issues" 비어있는지 확인 (정상). 의도적 에러 발생시켜 캡처 검증.
+
+**자동 캡처 대상**:
+- 모든 segment `error.tsx` (8개) — 클라이언트 + 서버 에러 boundary fallback 시
+- `instrumentation.ts` 의 `onRequestError` — Server Components / Route Handlers / Server Actions 의 unhandled error
+- `instrumentation-client.ts` — 브라우저 unhandled error / Promise rejection / router transition
+
+**미캡처 (의도적)**:
+- Server Action 에서 try/catch 후 `{ ok: false, error }` 반환하는 경우 — 비즈니스 에러로 간주 (사용자에게 표시).
+- `notification_logs` 의 'failed' 상태 — 이메일 발송 실패는 Resend 응답으로 별도 로깅.
+
+**비활성 옵션**:
+- `NEXT_PUBLIC_SENTRY_DSN` 비워두면 Sentry 완전 비활성 (빌드는 정상, 런타임 호출도 no-op).
 
 ---
 

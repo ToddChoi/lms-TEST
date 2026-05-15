@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import * as Sentry from '@sentry/nextjs'
 
 /**
  * Root global-error boundary — root layout 자체에서 발생한 에러용 fallback.
@@ -16,6 +17,7 @@ export default function GlobalError({
   reset: () => void
 }) {
   useEffect(() => {
+    Sentry.captureException(error)
     console.error('[GlobalError]', error)
   }, [error])
 

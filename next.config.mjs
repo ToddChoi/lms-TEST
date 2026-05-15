@@ -1,3 +1,5 @@
+import { withSentryConfig } from '@sentry/nextjs'
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
@@ -38,7 +40,8 @@ const nextConfig = {
       // font-src: Google Fonts woff2 (fonts.gstatic.com) — enforcement 시 막히지 않게 명시
       "font-src 'self' data: https://fonts.gstatic.com",
       "media-src 'self' blob: https://*.supabase.co",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com",
+      // sentry: 에러/트랜잭션 전송 (https://*.ingest.sentry.io 또는 organization-specific)
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://*.sentry.io https://*.ingest.sentry.io",
       "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://*.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com",
       "object-src 'none'",
       "base-uri 'self'",
@@ -69,4 +72,21 @@ const nextConfig = {
   },
 }
 
-export default nextConfig
+/**
+ * Sentry wrapper — DSN 미설정 / org 미설정 시 build 안 깨지도록 silent 옵션.
+ * source map 업로드는 SENTRY_AUTH_TOKEN + SENTRY_ORG + SENTRY_PROJECT 모두 있을 때만.
+ */
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  // CI 가 아닐 땐 verbose log 끔
+  silent: !process.env.CI,
+  // 클라이언트 에러의 source map 업로드 (필요 시 hide)
+  hideSourceMaps: true,
+  // tunnel route 로 ad-blocker 우회 (선택 — 도입 시 활성)
+  // tunnelRoute: '/monitoring',
+  // Sentry 내부 디버그 로그 production 빌드에서 제거 (tree-shake)
+  webpack: { treeshake: { removeDebugLogging: true } },
+})
+

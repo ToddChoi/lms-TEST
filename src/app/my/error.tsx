@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import Link from 'next/link'
+import * as Sentry from '@sentry/nextjs'
 import { AlertTriangle, RefreshCw } from 'lucide-react'
 
 export default function MyError({
@@ -12,6 +13,7 @@ export default function MyError({
   reset: () => void
 }) {
   useEffect(() => {
+    Sentry.captureException(error)
     console.error('[MyPageError]', error)
   }, [error])
 
