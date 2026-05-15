@@ -1,8 +1,12 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useFormState, useFormStatus } from 'react-dom'
 import { Save, Loader2 } from 'lucide-react'
+import {
+  saveOfflineSettingsAction,
+  initialSettingsState,
+  type SettingsState,
+} from '@/app/admin/offline/settings/actions'
 
 interface Props {
   initial: Record<string, string>
@@ -100,46 +104,25 @@ const SECTIONS: { title: string; fields: FieldDef[] }[] = [
   },
 ]
 
+/**
+ * Phase C — Server Action 마이그.
+ *
+ * - 각 input 에 name= 속성 → formData 자동 수집 (state 매핑 코드 제거)
+ * - useFormState: error / savedAt / updated 추적
+ * - useFormStatus: 별도 submitting state 불필요
+ * - defaultValue (uncontrolled) 로 폼 reset 자유 + 진정한 progressive enhancement
+ */
 export function OfflineSettingsForm({ initial }: Props) {
-  const router = useRouter()
-  const [values, setValues] = useState<Record<string, string>>(initial)
-  const [submitting, setSubmitting] = useState(false)
-  const [savedAt, setSavedAt] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  function update(key: string, v: string) {
-    setValues((prev) => ({ ...prev, [key]: v }))
-    setSavedAt(null)
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setSubmitting(true)
-    try {
-      const res = await fetch('/api/admin/offline/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ values }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        throw new Error(data.error || `저장 실패 (HTTP ${res.status})`)
-      }
-      setSavedAt(new Date().toLocaleTimeString('ko-KR'))
-      router.refresh()
-    } catch (e: any) {
-      setError(e.message ?? '저장 중 오류')
-    } finally {
-      setSubmitting(false)
-    }
-  }
+  const [state, formAction] = useFormState<SettingsState, FormData>(
+    saveOfflineSettingsAction,
+    initialSettingsState,
+  )
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-      {error && (
+    <form action={formAction} className="flex flex-col gap-6">
+      {state.error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
-          {error}
+          {state.error}
         </div>
       )}
 
@@ -148,7 +131,7 @@ export function OfflineSettingsForm({ initial }: Props) {
           <h2 className="mb-4 text-sm font-bold text-navy">{section.title}</h2>
           <div className="flex flex-col gap-4">
             {section.fields.map((field) => {
-              const value = values[field.key] ?? ''
+              const defaultValue = initial[field.key] ?? ''
               return (
                 <div key={field.key}>
                   <label className="mb-1.5 block text-xs font-semibold text-gray-700">
@@ -157,20 +140,20 @@ export function OfflineSettingsForm({ initial }: Props) {
                   </label>
                   {field.type === 'textarea' ? (
                     <textarea
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 font-mono text-sm focus:border-accent focus:outline-none"
-                      rows={4}
-                      value={value}
+                      name={field.key}
+                      defaultValue={defaultValue}
                       placeholder={field.placeholder}
-                      onChange={(e) => update(field.key, e.target.value)}
+                      rows={4}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 font-mono text-sm focus:border-accent focus:outline-none"
                     />
                   ) : (
                     <input
+                      name={field.key}
                       type={field.type}
-                      className="w-full max-w-xs rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-accent focus:outline-none"
-                      value={value}
+                      defaultValue={defaultValue}
                       placeholder={field.placeholder}
-                      onChange={(e) => update(field.key, e.target.value)}
                       min={field.type === 'number' ? 0 : undefined}
+                      className="w-full max-w-xs rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-accent focus:outline-none"
                     />
                   )}
                   {field.hint && (
@@ -184,18 +167,27 @@ export function OfflineSettingsForm({ initial }: Props) {
       ))}
 
       <div className="flex items-center justify-end gap-3">
-        {savedAt && (
-          <p className="text-xs text-green-600">{savedAt} 저장됨 ✓</p>
+        {state.ok && state.savedAt && (
+          <p className="text-xs text-green-600">
+            {new Date(state.savedAt).toLocaleTimeString('ko-KR')} 저장됨 ✓
+          </p>
         )}
-        <button
-          type="submit"
-          disabled={submitting}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-accent px-5 py-2 text-sm font-medium text-white hover:bg-accent-light disabled:opacity-50"
-        >
-          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          {submitting ? '저장 중...' : '저장'}
-        </button>
+        <SubmitButton />
       </div>
     </form>
+  )
+}
+
+function SubmitButton() {
+  const { pending } = useFormStatus()
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="inline-flex items-center gap-1.5 rounded-xl bg-accent px-5 py-2 text-sm font-medium text-white hover:bg-accent-light disabled:opacity-50"
+    >
+      {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+      {pending ? '저장 중...' : '저장'}
+    </button>
   )
 }
