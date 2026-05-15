@@ -77,45 +77,94 @@ npm run test:watch  # Vitest watch 모드
 | `RESEND_API_KEY` | 선택 | 미설정 시 메일 skip |
 | `EMAIL_FROM_ADDRESS` | 선택 | Resend 검증 도메인 |
 | `CRON_SECRET` | Cron 사용 시 | Vercel Cron 인증 |
+| `NEXT_PUBLIC_SENTRY_DSN` | Sentry 사용 시 | 클라이언트 + 서버 에러 전송 |
+| `SENTRY_AUTH_TOKEN` | Source map 업로드 시 | sentry-cli release upload |
+| `SENTRY_ORG` / `SENTRY_PROJECT` | Source map 업로드 시 | release 식별 |
+| `SENTRY_ENVIRONMENT` | Sentry 사용 시 | production / preview / development 구분 |
 | `KAKAO_ALIMTALK_API_KEY` | Phase 6 | 카카오 알림톡 (예정) |
 
 ---
 
 ## 3. Supabase 마이그레이션 적용 순서
 
-Supabase Dashboard → SQL Editor 에서 **순서대로** 실행. 모든 마이그레이션은 `IF NOT EXISTS`로 멱등.
+Supabase Dashboard → SQL Editor 에서 **아래 그룹 순서대로** 실행. 그룹 안은 어떤 순서로도 OK (모두 `IF NOT EXISTS` 멱등).
 
+### Group 0 — 베이스 (신규 환경에서 한 번)
 ```
-1. supabase/schema.sql                                  ← 초기 16 테이블 + RLS
-2. supabase/schema_phase6.sql                           ← Phase 6 (payments)
-3. supabase/migration_*.sql                             ← 추가 패치 (날짜순)
-   - migration_p1_correctness.sql
-   - migration_p1_phase8_role_check.sql
-   - migration_lessons_course_id_backfill.sql
-   - migration_offline_v2.sql                           ← 오프라인 교육 (11 테이블 + RLS + 트리거 + 함수)
-   - ... 등
+schema.sql                                          ← 초기 16 테이블 + RLS 정책
+schema_phase6.sql                                   ← Phase 6: payments / certificates 등
 ```
 
-적용 후 검증 쿼리:
+### Group 1 — 핵심 도메인 패치 (순차)
+```
+migration_phase1_foundation.sql
+migration_phase2_b2b_seed.sql
+migration_org_admin_role.sql                        ← profiles.role 'org_admin' 추가
+migration_instructor_role.sql                       ← profiles.role 'instructor' 추가
+migration_courses_metadata.sql                      ← courses 메타 필드
+migration_course_details.sql
+migration_total_duration_trigger.sql
+migration_lesson_notes.sql
+migration_recommendations.sql
+migration_reviews_qa.sql / migration_review_fixes.sql
+```
+
+### Group 2 — CMS / B2B Phase 4-5
+```
+migration_cms.sql / migration_cms_v2.sql / migration_cms_storage.sql
+migration_boards_v2.sql
+migration_phase4_demo_tenant.sql
+migration_phase4_audience_demo.sql
+migration_phase4_collections_paths.sql
+migration_phase5_banner_items_field.sql
+migration_phase5_banner_sizing.sql
+migration_phase5_home_seed.sql
+migration_phase6_certificate_templates.sql
+migration_notifications.sql                         ← notification_logs (이메일/SMS 로그)
+```
+
+### Group 3 — P0 / P1 핫픽스 (멱등, 운영 중에도 안전)
+```
+migration_security_hotfix_p0.sql                    ← P0 보안 패치
+migration_p1_correctness.sql                        ← certificates UNIQUE(user_id, course_id) 등
+migration_p1_phase8_role_check.sql                  ← profiles.role CHECK constraint
+migration_lessons_course_id_backfill.sql            ← 기존 lessons 의 NULL course_id 채움
+migration_lessons_soft_delete.sql                   ← lessons.deleted_at + 부분 인덱스 (P1)
+fix_rls_recursion.sql / fix_signup_trigger.sql      ← RLS / 트리거 핫픽스
+```
+
+### Group 4 — 오프라인 교육 (11 테이블)
+```
+migration_offline_v2.sql                            ← 11 테이블 + RLS 19+ + 트리거 + 함수
+```
+
+### 적용 후 검증 쿼리
 ```sql
--- 11 + 7 + ... = 모든 도메인 테이블
+-- 모든 도메인 테이블 (대략 35+)
 SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public';
+
 -- 오프라인 11
 SELECT count(*) FROM information_schema.tables WHERE table_name LIKE 'offline_%';
 -- 오프라인 RLS 정책 19+
 SELECT count(*) FROM pg_policies WHERE tablename LIKE 'offline_%';
+
+-- 핵심 P1 컬럼 / 제약 존재 검증
+SELECT column_name FROM information_schema.columns
+  WHERE table_name='lessons' AND column_name='deleted_at';
+SELECT * FROM information_schema.table_constraints WHERE constraint_name='profiles_role_check';
+SELECT * FROM information_schema.table_constraints WHERE constraint_name='certificates_user_id_course_id_key';
 ```
 
 ### Supabase Storage Buckets
 
-다음 버킷을 Dashboard → Storage 에서 수동 생성 (RLS 정책은 각 버킷 설정에서 적용):
+Dashboard → Storage 에서 **수동 생성** (RLS 정책은 각 버킷 설정에서 적용):
 
-| Bucket | Public | 용도 |
-|---|---|---|
-| `course-videos` | private | 강좌 영상 (signed URL 통해서만 재생) |
-| `media` | public | CMS 미디어 라이브러리 (이미지/배너) |
-| `thumbnails` | public | 강좌 / 프로그램 썸네일 |
-| `certificates` | private | 발급된 수료증 PDF |
+| Bucket | Public | 용도 | 누락 시 영향 |
+|---|---|---|---|
+| `course-videos` | private | 강좌 영상 (signed URL 통해서만 재생) | 영상 업로드/재생 실패 |
+| `media` | public | CMS 미디어 라이브러리 (이미지/배너) | CMS 미디어 업로드 실패 |
+| `thumbnails` | public | 강좌 / 프로그램 썸네일 | 썸네일 업로드 실패 |
+| `certificates` | private | 발급된 수료증 PDF (온라인 + 오프라인 공용) | **수료증 일괄 발급 시 upload 실패** |
 
 ---
 
@@ -213,6 +262,117 @@ src/
 - **이메일 발송 로그**: `notification_logs` 테이블 (status, error)
 - **오프라인 알림 큐**: `offline_notifications` 테이블 (Phase 6 cron 도입 시 활용)
 - **감사 로그**: `offline_audit_log` (admin/superadmin 만 조회)
+
+---
+
+## 9. 신규 환경 셋업 체크리스트
+
+신규 Supabase / Vercel 환경에서 처음 띄울 때 **순서대로** 처리. 누락 시 어떤 기능이 깨지는지 표기.
+
+### 9-1. Supabase
+- [ ] **마이그레이션 그룹 0~4 적용** (§3) — 전체 적용 후 검증 쿼리 통과 확인.
+- [ ] **Storage 버킷 4종 생성** (§3 표) — 특히 `certificates` 누락 시 수료증 발급 실패.
+- [ ] **Auth Email Confirmation 정책 설정** — Dashboard → Auth → Settings.
+- [ ] **(선택) RLS 동작 확인** — admin 계정으로 `/admin/users` 접근 / 일반 사용자로 `/admin/*` 접근 차단 확인.
+
+### 9-2. Vercel
+- [ ] **GitHub repo 연동** + main push 자동 배포.
+- [ ] **Environment Variables 등록** — §2 의 모든 키 (Production / Preview 양쪽).
+- [ ] **`vercel.json`** 의 region `icn1` 적용 확인.
+
+### 9-3. Stripe (결제 활성화 시)
+- [ ] **Webhook endpoint 2개 등록** — §4 표 (`/api/payments/webhook` + `/api/offline/webhook`).
+- [ ] 각 endpoint signing secret → Vercel `STRIPE_WEBHOOK_SECRET` / `STRIPE_OFFLINE_WEBHOOK_SECRET`.
+- [ ] **테스트 모드 → Live 전환 시** — sk_live_ / pk_live_ 키로 교체 + webhook 재등록.
+
+### 9-4. Resend (이메일)
+- [ ] **API Key 발급 + 도메인 검증** (https://resend.com).
+- [ ] `RESEND_API_KEY` + `EMAIL_FROM_ADDRESS` 등록.
+- [ ] (검증 도메인 미설정 시) Resend onboarding domain 으로 시작 → `noreply@onresend.com` 같은 값 사용.
+
+### 9-5. Vercel Cron
+- [ ] `vercel.json` 의 `crons` 배열에 정의된 작업이 Vercel **Cron Jobs** 탭에 자동 등록 확인.
+- [ ] `CRON_SECRET` Vercel 환경변수 등록.
+- [ ] **Hobby plan 한도**: 일일 cron 최대 2개. 현재 `expire-enrollments` + `offline/daily` (offline 통합) 2개 사용 중.
+
+### 9-6. 운영 도메인 변경 시
+- [ ] `NEXT_PUBLIC_APP_URL` / `NEXT_PUBLIC_SITE_URL` 변경.
+- [ ] Stripe webhook endpoint URL 변경.
+- [ ] Supabase Auth → Site URL / Redirect URLs 갱신.
+
+---
+
+## 10. 코드 패턴 가이드
+
+App Router 14 의 강점 활용 — 신규 mutation 작업 시 아래 패턴 따라.
+
+### 10-1. Server Actions (form mutation)
+
+Route Handler (`/api/...`) 대신 Server Action 우선. 5개 admin form 이미 마이그됨 (`src/app/admin/**/actions.ts`).
+
+**Uncontrolled form** (formData 자동 수집, 단순 form):
+```tsx
+// actions.ts
+'use server'
+export async function saveSettingsAction(prev: State, formData: FormData): Promise<State> {
+  const value = String(formData.get('field_name') ?? '')
+  // ... validate + DB
+  revalidatePath('/admin/settings')
+  return { ok: true, ... }
+}
+
+// component.tsx
+'use client'
+import { useFormState, useFormStatus } from 'react-dom'
+const [state, formAction] = useFormState(saveSettingsAction, initialState)
+return <form action={formAction}>
+  <input name="field_name" defaultValue={...} />
+  <SubmitButton />
+</form>
+function SubmitButton() {
+  const { pending } = useFormStatus()
+  return <button disabled={pending}>{pending ? '...' : '저장'}</button>
+}
+```
+
+**Controlled form** (react-hook-form + zod 통합 / state object 보존):
+```tsx
+// component.tsx
+const [isPending, startTransition] = useTransition()
+const onSubmit = (values) => {
+  startTransition(async () => {
+    const result = await createCompanyAction(values)
+    if (!result.ok) { setError(result.error); return }
+    router.push('/admin/companies')
+  })
+}
+return <form onSubmit={handleSubmit(onSubmit)}>...</form>
+```
+
+**가드 / 갱신 규칙**:
+- `requireAdmin()` 등 가드는 action 안에서 그대로 호출 (Route Handler 와 동일).
+- 응답: `{ ok: true; data } | { ok: false; error }` (typed result) 또는 `useFormState` 의 state 객체.
+- 페이지 갱신: `revalidatePath('/admin/foo')` (router.refresh 대체).
+
+### 10-2. Parallel + Intercepting routes (modal)
+
+`/admin/users` 가 PoC. 같은 URL 로 contextual modal 표시:
+- `layout.tsx` — `{ children, modal }` slot
+- `default.tsx` — children null fallback
+- `@modal/default.tsx` — modal null fallback (닫힘)
+- `@modal/(.)[id]/page.tsx` — intercepting route (목록에서 click 시)
+- `[id]/page.tsx` — 풀 페이지 (직접 URL / 새로고침)
+
+다른 admin 영역에 적용하려면 위 5개 파일 패턴을 그대로 복사 + path 만 변경.
+
+### 10-3. Segment 표준 파일
+
+신규 segment 추가 시 (예: `/admin/foo/`) 다음 3개 항상 추가:
+- `loading.tsx` — server fetch 중 streaming UI
+- `error.tsx` — 'use client' + reset() 버튼 + dev mode stack
+- `not-found.tsx` — `notFound()` 호출 시 segment 디자인 유지
+
+기존 7 segment × 3 = 21개 파일 참고 (Phase A commit `ac80a74`).
 
 ---
 
