@@ -13,16 +13,15 @@ export const dynamic = 'force-dynamic'
  *
  * 동작:
  *   1. 본인 admin/superadmin 검증
- *   2. enrollment status='pending_payment' AND payment_method='invoice' 검증
- *   3. 정원 재검증 (RPC offline_session_available_seats — race-safe)
- *      - 통과: confirmed 전이 + paid_at + invoice_paid_confirmed_by/at
- *      - 초과: cancelled (system_expired) + 안내 메일 (Phase 4 환불 흐름)
- *   4. payment_confirmed 메일 + offline_notifications INSERT
+ *   2. enrollment 의 payment_method='invoice' / status='pending_payment' / soft-deleted X 검증
+ *   3. offline_confirm_enrollment RPC 호출 (FOR UPDATE 락 + 잔여석 재계산 + 상태 전이 원자화)
+ *      - 'confirmed' : payment_confirmed 메일 + offline_notifications INSERT
+ *      - 'cancelled' : 정원 초과 자동 취소 — 운영자 수동 환불 안내 (오프라인 환불)
+ *      - 'noop'      : 이미 처리됨 — 새로고침 안내
  *
- * 멱등:
- *   - status guard ('pending_payment' 만 업데이트) → 두 번 클릭 시 두 번째는 0 row
- *   - 상태 전이 트리거 (validate_enrollment_status_transition) 가 confirmed →
- *     confirmed 차단 (status IS DISTINCT FROM 검사)
+ * 멱등 / race-safe:
+ *   - P1 race fix (2026-05-15): RPC 가 offline_sessions row FOR UPDATE → Stripe webhook 과
+ *     동일 session 의 동시 confirm 직렬화. 잔여석 1석에 두 confirm 들어와도 정확히 하나만 성공.
  */
 export async function POST(_req: Request, { params }: { params: { id: string } }) {
   const { guard, user, role } = await requireAdmin()
@@ -30,12 +29,12 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
 
   const admin = createAdminClient()
 
-  // enrollment 가져오기
+  // 사전 검증용 fetch (status / payment_method / 메일 발송용 메타).
+  // 실제 status 전이는 RPC 안에서 lock + 재검증 → race-safe.
   const { data: rawEnrollment } = await admin
     .from('offline_enrollments')
     .select(`
-      id, status, payment_method, applicant_user_id, session_id,
-      attendee_count, total_amount,
+      id, status, payment_method, applicant_user_id, session_id, attendee_count,
       offline_sessions (
         title, start_date, end_date, location_name, location_address,
         offline_programs ( title )
@@ -51,7 +50,6 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     applicant_user_id: string
     session_id: string
     attendee_count: number
-    total_amount: number
     offline_sessions: {
       title: string | null
       start_date: string
@@ -78,63 +76,53 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     )
   }
 
-  // 정원 재검증 (confirmed 만 카운트)
-  const { data: availData } = await (admin as any).rpc(
-    'offline_session_available_seats',
-    { p_session_id: enrollment.session_id }
+  // P1 race fix — RPC 호출. lock 안에서 잔여석 재계산 + 상태 전이.
+  const { data: rpcRows, error: rpcErr } = await (admin as any).rpc(
+    'offline_confirm_enrollment',
+    {
+      p_enrollment_id: enrollment.id,
+      p_paid_at: new Date().toISOString(),
+      p_stripe_payment_intent_id: null,  // invoice 경로
+      p_invoice_confirmed_by: user!.id,
+    }
   )
-  const available = typeof availData === 'number' ? availData : Number(availData ?? 0)
+  if (rpcErr) {
+    return NextResponse.json({ error: rpcErr.message }, { status: 500 })
+  }
 
-  if (available < enrollment.attendee_count) {
-    // 정원 초과 — cancelled 처리. Phase 4 의 환불 흐름은 운영자 수동 (오프라인 환불).
-    await (admin as any)
-      .from('offline_enrollments')
-      .update({
-        status: 'cancelled',
-        cancelled_at: new Date().toISOString(),
-        cancelled_by: 'admin',
-        notes: `입금 확인 시점 정원 초과 (요청 ${enrollment.attendee_count}, 잔여 ${available}). 환불 처리 필요.`,
-      })
-      .eq('id', enrollment.id)
-      .eq('status', 'pending_payment')
+  const result = (rpcRows as Array<{
+    result_status: 'confirmed' | 'cancelled' | 'noop'
+    available_seats: number
+    attendee_count: number
+    message: string
+  }>)?.[0]
 
+  if (!result || result.result_status === 'noop') {
+    return NextResponse.json(
+      { error: result?.message ?? '이미 다른 처리가 진행됐습니다. 새로고침 후 확인해주세요.' },
+      { status: 409 }
+    )
+  }
+
+  if (result.result_status === 'cancelled') {
+    // RPC 가 이미 cancelled 전이 + notes — 감사 로그만 추가
     await (admin as any).from('offline_audit_log').insert({
       entity_type: 'enrollment',
       entity_id: enrollment.id,
       action: 'capacity_exceeded_at_confirm',
       actor_user_id: user!.id,
       actor_type: 'admin',
-      diff: { available, requested: enrollment.attendee_count },
+      diff: { available: result.available_seats, requested: result.attendee_count },
     })
-
-    return NextResponse.json({
-      ok: false,
-      error: `정원 초과로 자동 취소되었습니다. (잔여 ${available}석, 요청 ${enrollment.attendee_count}명) 환불 처리가 필요합니다.`,
-    }, { status: 409 })
-  }
-
-  // confirmed 전이
-  const { data: updateData, error: updateErr } = await (admin as any)
-    .from('offline_enrollments')
-    .update({
-      status: 'confirmed',
-      paid_at: new Date().toISOString(),
-      invoice_paid_confirmed_at: new Date().toISOString(),
-      invoice_paid_confirmed_by: user!.id,
-    })
-    .eq('id', enrollment.id)
-    .eq('status', 'pending_payment')  // race-safe
-    .select('id')
-
-  if (updateErr) {
-    return NextResponse.json({ error: updateErr.message }, { status: 500 })
-  }
-  if (!Array.isArray(updateData) || updateData.length === 0) {
     return NextResponse.json(
-      { error: '이미 다른 처리가 진행됐습니다. 새로고침 후 확인해주세요.' },
+      {
+        ok: false,
+        error: `정원 초과로 자동 취소되었습니다. (잔여 ${result.available_seats}석, 요청 ${result.attendee_count}명) 환불 처리가 필요합니다.`,
+      },
       { status: 409 }
     )
   }
+  // result.result_status === 'confirmed' — 아래 메일 발송 흐름 진행
 
   // payment_confirmed 메일 — best effort
   try {

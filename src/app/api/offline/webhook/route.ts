@@ -16,18 +16,19 @@ export const dynamic = 'force-dynamic'
  * 처리:
  *   checkout.session.completed
  *     - metadata.enrollment_id 가 source of truth
- *     - 현재 status='pending_payment' 만 처리 (이미 confirmed → 멱등 무동작)
- *     - 정원 재검증 (race: 동시 다른 사용자 결제 완료로 정원 초과 가능)
- *     - 통과: confirmed + paid_at + stripe_payment_intent_id
- *     - 초과: cancelled + Stripe Refund 자동 + offline_refunds 기록
+ *     - offline_confirm_enrollment RPC 호출 (FOR UPDATE 락 + 잔여석 재계산 + 상태 전이 원자화)
+ *       → result_status: 'confirmed' | 'cancelled' (정원 초과) | 'noop' (이미 처리)
+ *     - 'cancelled' 인 경우 Stripe Refund 자동 + offline_refunds 기록
  *   checkout.session.expired / payment_intent.payment_failed
  *     - 그대로 두고 cron (expire-pending-payments) 이 일괄 처리
  *     - notes 만 추가
  *
  * 멱등성:
  *   - offline_enrollments(stripe_session_id) WHERE NOT NULL UNIQUE — 동일 session 재INSERT 차단
- *   - status='pending_payment' guard 로 재처리 차단
- *   - 상태 전이 트리거 (validate_enrollment_status_transition) 가 confirmed → confirmed 차단
+ *   - RPC 가 lock 안에서 status guard ('pending_payment' 만 처리) → 동시/재시도 모두 안전
+ *   - P1 race fix (2026-05-15): RPC 가 offline_sessions row FOR UPDATE → 동일 session 의
+ *     동시 confirm (Stripe webhook + invoice admin) 직렬화. 잔여석 1석에 두 결제가 들어와도
+ *     하나만 confirmed, 다른 하나는 cancelled + 자동 환불.
  */
 export async function POST(request: Request) {
   const sig = request.headers.get('stripe-signature')
@@ -83,41 +84,43 @@ export async function POST(request: Request) {
               : session.payment_intent.id
         }
 
-        // 현재 enrollment 상태 확인 (재처리 멱등성)
-        const { data: rawEnrollment } = await admin
+        // total_amount 는 환불 금액 계산용 — RPC 가 enrollment 직접 다루므로 별도 fetch
+        const { data: rawAmount } = await admin
           .from('offline_enrollments')
-          .select('id, session_id, status, attendee_count, total_amount')
+          .select('total_amount')
           .eq('id', enrollmentId)
           .maybeSingle()
-        const enrollment = rawEnrollment as unknown as {
-          id: string
-          session_id: string
-          status: string
-          attendee_count: number
-          total_amount: number
-        } | null
+        const totalAmount = (rawAmount as unknown as { total_amount: number } | null)?.total_amount ?? 0
 
-        if (!enrollment) {
-          // metadata 가 가리키는 enrollment 가 없음 — 정상 아님. log + 200 (Stripe 재시도 차단)
-          console.error('[offline webhook] enrollment not found:', enrollmentId)
-          return NextResponse.json({ received: true })
-        }
-
-        if (enrollment.status !== 'pending_payment') {
-          // 이미 처리됨 — 멱등 무동작
-          return NextResponse.json({ received: true, idempotent: true })
-        }
-
-        // 정원 재검증 — 동시 결제 race 차단. RPC 가 confirmed 만 카운트.
-        const { data: availData } = await (admin as any).rpc(
-          'offline_session_available_seats',
-          { p_session_id: enrollment.session_id }
+        // P1 race fix — offline_confirm_enrollment RPC 호출 (FOR UPDATE 락 + 원자 전이).
+        // 결과: 'confirmed' / 'cancelled' (정원 초과) / 'noop' (이미 처리됨 / enrollment 없음)
+        const { data: rpcRows, error: rpcErr } = await (admin as any).rpc(
+          'offline_confirm_enrollment',
+          {
+            p_enrollment_id: enrollmentId,
+            p_paid_at: new Date().toISOString(),
+            p_stripe_payment_intent_id: paymentIntentId,
+            p_invoice_confirmed_by: null,  // Stripe 경로
+          }
         )
-        const available =
-          typeof availData === 'number' ? availData : Number(availData ?? 0)
+        if (rpcErr) {
+          console.error('[offline webhook] confirm RPC failed:', rpcErr)
+          throw rpcErr
+        }
 
-        if (available < enrollment.attendee_count) {
-          // 정원 초과 — 자동 환불 + cancelled 처리
+        const result = (rpcRows as Array<{
+          result_status: 'confirmed' | 'cancelled' | 'noop'
+          available_seats: number
+          attendee_count: number
+          message: string
+        }>)?.[0]
+
+        if (!result || result.result_status === 'noop') {
+          return NextResponse.json({ received: true, idempotent: true, reason: result?.message })
+        }
+
+        if (result.result_status === 'cancelled') {
+          // 정원 초과 — 자동 환불 + offline_refunds 기록 + 감사 로그
           let refundId: string | null = null
           let refundError: string | null = null
           if (paymentIntentId) {
@@ -134,45 +137,36 @@ export async function POST(request: Request) {
             }
           }
 
-          // enrollment 자체는 confirmed 전이 안 시키고 즉시 cancelled.
-          // 상태 전이 트리거: pending_payment → cancelled 허용.
-          await (admin as any)
-            .from('offline_enrollments')
-            .update({
-              status: 'cancelled',
-              cancelled_at: new Date().toISOString(),
-              cancelled_by: 'system_expired',
-              stripe_payment_intent_id: paymentIntentId,
-              notes:
-                refundError
-                  ? `정원 초과로 자동 취소. Stripe 환불 실패 — 수동 처리 필요: ${refundError}`
-                  : '정원 초과로 자동 취소 및 전액 환불 처리됨.',
-            })
-            .eq('id', enrollmentId)
-            .eq('status', 'pending_payment')  // race-safe
+          // RPC 가 이미 cancelled 전이 + notes 기록 — 환불 결과만 추가 notes 로 append.
+          if (refundError) {
+            await (admin as any)
+              .from('offline_enrollments')
+              .update({ notes: `정원 초과 cancelled, Stripe 환불 실패 (수동 처리 필요): ${refundError}` })
+              .eq('id', enrollmentId)
+          }
 
           // offline_refunds 기록 (자동)
           if (refundId) {
             await (admin as any).from('offline_refunds').insert({
               enrollment_id: enrollmentId,
               reason: 'system_expired',
-              amount: enrollment.total_amount,
+              amount: totalAmount,
               rate: 100,
               processed_by_type: 'system',
               stripe_refund_id: refundId,
-              notes: '정원 초과 자동 환불',
+              notes: '정원 초과 자동 환불 (RPC 원자 전이 후)',
             })
           }
 
-          // 감사 로그 (system actor)
+          // 감사 로그
           await (admin as any).from('offline_audit_log').insert({
             entity_type: 'enrollment',
             entity_id: enrollmentId,
             action: 'capacity_exceeded_refund',
             actor_type: 'system',
             diff: {
-              available,
-              requested: enrollment.attendee_count,
+              available: result.available_seats,
+              requested: result.attendee_count,
               refund_id: refundId,
               refund_error: refundError,
             },
@@ -181,29 +175,10 @@ export async function POST(request: Request) {
           break
         }
 
-        // 정상 — confirmed 전이
-        const { error: updateErr, data: confirmedRows } = await (admin as any)
-          .from('offline_enrollments')
-          .update({
-            status: 'confirmed',
-            paid_at: new Date().toISOString(),
-            stripe_payment_intent_id: paymentIntentId,
-          })
-          .eq('id', enrollmentId)
-          .eq('status', 'pending_payment')  // race-safe (다른 이벤트가 먼저 처리했으면 skip)
-          .select('id')
-
-        if (updateErr) {
-          console.error('[offline webhook] enrollment confirm failed:', updateErr)
-          throw updateErr
-        }
-
-        // 실제로 confirmed 전이된 경우만 알림 (멱등 — 두 번째 webhook 시 confirmedRows 빈 배열)
-        if (Array.isArray(confirmedRows) && confirmedRows.length > 0) {
-          await dispatchPaymentConfirmedEmail(admin, enrollmentId).catch((e) => {
-            console.warn('[offline webhook] payment_confirmed email failed:', e)
-          })
-        }
+        // result.result_status === 'confirmed' — 메일 발송 (RPC 가 이미 status 전이)
+        await dispatchPaymentConfirmedEmail(admin, enrollmentId).catch((e) => {
+          console.warn('[offline webhook] payment_confirmed email failed:', e)
+        })
         break
       }
 
