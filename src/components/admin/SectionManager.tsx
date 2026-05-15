@@ -1,10 +1,17 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useTransition } from 'react'
 import { formatDuration } from '@/lib/utils'
 import { ChevronDown, ChevronRight, PlayCircle, Eye, Pencil, Trash2, Plus, GripVertical, RotateCcw, Trash } from 'lucide-react'
 import { VideoUploader } from '@/components/admin/VideoUploader'
+import {
+  createSectionAction,
+  updateSectionAction,
+  deleteSectionAction,
+  createLessonAction,
+  updateLessonAction,
+  deleteLessonAction,
+} from '@/app/admin/courses/actions'
 
 export interface Lesson {
   id: string
@@ -172,10 +179,10 @@ function LessonFormRow({
 }
 
 export default function SectionManager({ courseId, initialSections }: Props) {
-  const router = useRouter()
   const [sections, setSections] = useState<Section[]>(initialSections)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set(initialSections.map((s) => s.id)))
-  const [loading, setLoading] = useState(false)
+  const [isPending, startTransition] = useTransition()
+  const loading = isPending  // 기존 prop 호환 (Form Row / 버튼 disabled)
   const [error, setError] = useState('')
 
   const [addingSection, setAddingSection] = useState(false)
@@ -200,109 +207,83 @@ export default function SectionManager({ courseId, initialSections }: Props) {
   }
 
   // ── Section CRUD ──────────────────────────────────────────────
+  // Phase C5 — fetch + setLoading 보일러플레이트 제거. useTransition + Server Action.
 
-  async function handleAddSection() {
+  function handleAddSection() {
     if (!newSection.title.trim()) { setError('섹션 제목을 입력하세요.'); return }
-    setLoading(true); setError('')
-    const res = await fetch('/api/admin/sections', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ course_id: courseId, title: newSection.title, sort_order: newSection.sort_order }),
-    })
-    setLoading(false)
-    if (res.ok) {
-      const data = await res.json()
-      setSections((prev) => [...prev, { ...data.section, lessons: [] }])
-      setExpandedIds((prev) => new Set([...prev, data.section.id]))
+    setError('')
+    startTransition(async () => {
+      const result = await createSectionAction({
+        course_id: courseId,
+        title: newSection.title,
+        sort_order: newSection.sort_order,
+      })
+      if (!result.ok) { setError(result.error); return }
+      setSections((prev) => [...prev, { ...result.data, lessons: [] }])
+      setExpandedIds((prev) => new Set([...prev, result.data.id]))
       setAddingSection(false)
       setNewSection(emptySection)
-      router.refresh()
-    } else {
-      const data = await res.json(); setError(data.error ?? '추가 실패')
-    }
+      // revalidatePath 가 server data 갱신 — router.refresh 불필요
+    })
   }
 
-  async function handleSaveSection(id: string) {
+  function handleSaveSection(id: string) {
     if (!editSectionForm.title.trim()) { setError('제목을 입력하세요.'); return }
-    setLoading(true); setError('')
-    const res = await fetch('/api/admin/sections', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, title: editSectionForm.title, sort_order: editSectionForm.sort_order }),
-    })
-    setLoading(false)
-    if (res.ok) {
+    setError('')
+    startTransition(async () => {
+      const result = await updateSectionAction(id, {
+        title: editSectionForm.title,
+        sort_order: editSectionForm.sort_order,
+      })
+      if (!result.ok) { setError(result.error); return }
       setSections((prev) => prev.map((s) => s.id === id ? { ...s, ...editSectionForm } : s))
       setEditingSectionId(null)
-      router.refresh()
-    } else {
-      const data = await res.json(); setError(data.error ?? '저장 실패')
-    }
+    })
   }
 
-  async function handleDeleteSection(id: string) {
+  function handleDeleteSection(id: string) {
     if (!confirm('섹션과 하위 모든 강의를 삭제하시겠습니까?')) return
-    setLoading(true); setError('')
-    const res = await fetch('/api/admin/sections', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id }),
-    })
-    setLoading(false)
-    if (res.ok) {
+    setError('')
+    startTransition(async () => {
+      const result = await deleteSectionAction(id)
+      if (!result.ok) { setError(result.error); return }
       setSections((prev) => prev.filter((s) => s.id !== id))
-      router.refresh()
-    } else {
-      const data = await res.json(); setError(data.error ?? '삭제 실패')
-    }
+    })
   }
 
   // ── Lesson CRUD ───────────────────────────────────────────────
 
-  async function handleAddLesson(sectionId: string) {
+  function handleAddLesson(sectionId: string) {
     if (!newLesson.title.trim()) { setError('강의 제목을 입력하세요.'); return }
-    setLoading(true); setError('')
-    const res = await fetch('/api/admin/lessons', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    setError('')
+    startTransition(async () => {
+      const result = await createLessonAction({
         section_id: sectionId,
         title: newLesson.title,
         video_url: newLesson.video_url || null,
         duration: newLesson.duration * 60,
         is_preview: newLesson.is_preview,
         sort_order: newLesson.sort_order,
-      }),
-    })
-    setLoading(false)
-    if (res.ok) {
-      const data = await res.json()
-      setSections((prev) => prev.map((s) => s.id === sectionId ? { ...s, lessons: [...s.lessons, data.lesson] } : s))
+      })
+      if (!result.ok) { setError(result.error); return }
+      setSections((prev) => prev.map((s) => s.id === sectionId ? { ...s, lessons: [...s.lessons, result.data] } : s))
       setAddingLessonSectionId(null)
       setNewLesson(emptyLesson)
-      router.refresh()
-    } else {
-      const data = await res.json(); setError(data.error ?? '추가 실패')
-    }
+    })
   }
 
-  async function handleSaveLesson(lessonId: string, sectionId: string) {
+  function handleSaveLesson(lessonId: string, sectionId: string) {
     if (!editLessonForm.title.trim()) { setError('강의 제목을 입력하세요.'); return }
-    setLoading(true); setError('')
-    const res = await fetch('/api/admin/lessons', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: lessonId,
+    setError('')
+    startTransition(async () => {
+      const result = await updateLessonAction(lessonId, {
         title: editLessonForm.title,
         video_url: editLessonForm.video_url || null,
         duration: editLessonForm.duration * 60,
         is_preview: editLessonForm.is_preview,
         sort_order: editLessonForm.sort_order,
-      }),
-    })
-    setLoading(false)
-    if (res.ok) {
+      })
+      if (!result.ok) { setError(result.error); return }
       setSections((prev) =>
         prev.map((s) =>
           s.id === sectionId
@@ -311,23 +292,16 @@ export default function SectionManager({ courseId, initialSections }: Props) {
         )
       )
       setEditingLessonId(null)
-      router.refresh()
-    } else {
-      const data = await res.json(); setError(data.error ?? '저장 실패')
-    }
+    })
   }
 
-  async function handleDeleteLesson(lessonId: string, sectionId: string) {
+  function handleDeleteLesson(lessonId: string, sectionId: string) {
     if (!confirm('이 강의를 삭제하시겠습니까?\n\n학생 진도/수료증은 보존되며, 30일 안에 휴지통에서 복원할 수 있습니다.')) return
-    setLoading(true); setError('')
-    const res = await fetch('/api/admin/lessons', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: lessonId }),
-    })
-    setLoading(false)
-    if (res.ok) {
-      // active → deleted 로 이동 (router.refresh 가 deletedLessons 까지 다시 가져오지만 즉시 반영용)
+    setError('')
+    startTransition(async () => {
+      const result = await deleteLessonAction(lessonId)
+      if (!result.ok) { setError(result.error); return }
+      // active → deleted 로 이동
       setSections((prev) => prev.map((s) => {
         if (s.id !== sectionId) return s
         const removed = s.lessons.find((l) => l.id === lessonId)
@@ -339,23 +313,16 @@ export default function SectionManager({ courseId, initialSections }: Props) {
             : (s.deletedLessons ?? []),
         }
       }))
-      router.refresh()
-    } else {
-      const data = await res.json(); setError(data.error ?? '삭제 실패')
-    }
+    })
   }
 
-  // 복원: PATCH { id, restore: true } → deleted_at = null.
-  async function handleRestoreLesson(lessonId: string, sectionId: string) {
+  // 복원: action 의 restore: true 옵션 → deleted_at = null.
+  function handleRestoreLesson(lessonId: string, sectionId: string) {
     if (!confirm('이 강의를 복원하시겠습니까?')) return
-    setLoading(true); setError('')
-    const res = await fetch('/api/admin/lessons', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: lessonId, restore: true }),
-    })
-    setLoading(false)
-    if (res.ok) {
+    setError('')
+    startTransition(async () => {
+      const result = await updateLessonAction(lessonId, { restore: true })
+      if (!result.ok) { setError(result.error); return }
       setSections((prev) => prev.map((s) => {
         if (s.id !== sectionId) return s
         const restored = (s.deletedLessons ?? []).find((l) => l.id === lessonId)
@@ -367,10 +334,7 @@ export default function SectionManager({ courseId, initialSections }: Props) {
           deletedLessons: (s.deletedLessons ?? []).filter((l) => l.id !== lessonId),
         }
       }))
-      router.refresh()
-    } else {
-      const data = await res.json(); setError(data.error ?? '복원 실패')
-    }
+    })
   }
 
   // ── 총 강의 수 / 총 시간 계산 ──────────────────────────────────
