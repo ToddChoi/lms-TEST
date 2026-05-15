@@ -1,10 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import {
+  createCompanyAction,
+  updateCompanyAction,
+} from '@/app/admin/companies/actions'
 
 const schema = z.object({
   name: z.string().min(1, '기업명을 입력하세요.'),
@@ -22,9 +26,15 @@ interface CompanyFormProps {
   mode: 'create' | 'edit'
 }
 
+/**
+ * Phase C2 — react-hook-form + Server Action 하이브리드 패턴.
+ * - client validation: zodResolver (즉시 피드백)
+ * - mutation: useTransition + Server Action 직접 호출 (form action 대신 imperative)
+ * - useFormState 미사용 — react-hook-form 의 handleSubmit 가 onSubmit 책임
+ */
 export function CompanyForm({ initialValues, mode }: CompanyFormProps) {
   const router = useRouter()
-  const [loading, setLoading] = useState(false)
+  const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
   const { register, handleSubmit, formState: { errors } } = useForm<CompanyFormValues>({
@@ -39,39 +49,28 @@ export function CompanyForm({ initialValues, mode }: CompanyFormProps) {
     },
   })
 
-  const onSubmit = async (values: CompanyFormValues) => {
-    setLoading(true)
+  const onSubmit = (values: CompanyFormValues) => {
     setError(null)
-    try {
-      const payload = {
-        ...values,
+    startTransition(async () => {
+      const input = {
+        name: values.name,
         contact_name: values.contact_name || null,
         contact_email: values.contact_email || null,
         contract_start: values.contract_start || null,
         contract_end: values.contract_end || null,
+        is_active: values.is_active,
       }
+      const result =
+        mode === 'create'
+          ? await createCompanyAction(input)
+          : await updateCompanyAction(initialValues!.id!, input)
 
-      const url = '/api/admin/companies'
-      const body =
-        mode === 'create' ? payload : { id: initialValues?.id, ...payload }
-      const method = mode === 'create' ? 'POST' : 'PATCH'
-
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error ?? '저장에 실패했습니다.')
+      if (!result.ok) {
+        setError(result.error)
+        return
       }
       router.push('/admin/companies')
-      router.refresh()
-    } catch (e: any) {
-      setError(e.message ?? '오류가 발생했습니다.')
-    } finally {
-      setLoading(false)
-    }
+    })
   }
 
   return (
@@ -132,10 +131,10 @@ export function CompanyForm({ initialValues, mode }: CompanyFormProps) {
       <div className="flex gap-2 mt-2">
         <button
           type="submit"
-          disabled={loading}
+          disabled={isPending}
           className="bg-[#2D7DD2] text-white px-4 py-2 rounded-lg text-sm hover:bg-[#2566b0] transition disabled:opacity-50"
         >
-          {loading ? '저장 중...' : mode === 'create' ? '등록' : '저장'}
+          {isPending ? '저장 중...' : mode === 'create' ? '등록' : '저장'}
         </button>
         <button
           type="button"

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   OFFLINE_SESSION_STATUS_LABEL,
@@ -8,6 +8,11 @@ import {
   type OfflineSessionStatus,
 } from '@/types/database'
 import { Save, Trash2 } from 'lucide-react'
+import {
+  createSessionAction,
+  updateSessionAction,
+  deleteSessionAction,
+} from '@/app/admin/offline/sessions/actions'
 
 interface Props {
   programId: string
@@ -57,8 +62,8 @@ function fromInitial(s: OfflineSession | undefined): FormState {
 export function SessionForm({ programId, initial }: Props) {
   const router = useRouter()
   const [form, setForm] = useState<FormState>(fromInitial(initial))
-  const [submitting, setSubmitting] = useState(false)
-  const [deleting, setDeleting] = useState(false)
+  const [submitting, startSubmit] = useTransition()
+  const [deleting, startDelete] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
   const isEdit = !!initial
@@ -67,7 +72,7 @@ export function SessionForm({ programId, initial }: Props) {
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
 
@@ -108,9 +113,8 @@ export function SessionForm({ programId, initial }: Props) {
       return
     }
 
-    setSubmitting(true)
-    try {
-      const body = {
+    startSubmit(async () => {
+      const input = {
         program_id: programId,
         title: form.title.trim() || null,
         start_date: form.start_date,
@@ -129,53 +133,33 @@ export function SessionForm({ programId, initial }: Props) {
         },
         status: form.status,
       }
-      const res = await fetch(
-        isEdit
-          ? `/api/admin/offline/sessions/${initial!.id}`
-          : '/api/admin/offline/sessions',
-        {
-          method: isEdit ? 'PUT' : 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        }
-      )
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}))
-        throw new Error(j.error || `요청 실패 (HTTP ${res.status})`)
-      }
-      const j = await res.json().catch(() => ({}))
-      if (!isEdit && j.id) {
-        // 새로 생성된 회차의 편집 페이지 (회차 일자 추가 시작)로 바로 이동
-        router.push(`/admin/offline/programs/${programId}/sessions/${j.id}`)
-      } else {
+      if (isEdit) {
+        const result = await updateSessionAction(initial!.id, input)
+        if (!result.ok) { setError(result.error); return }
         router.push(`/admin/offline/programs/${programId}/sessions`)
+      } else {
+        const result = await createSessionAction(input)
+        if (!result.ok) { setError(result.error); return }
+        // 새로 생성된 회차의 편집 페이지 (회차 일자 추가 시작) 로 바로 이동
+        router.push(`/admin/offline/programs/${programId}/sessions/${result.data.id}`)
       }
-      router.refresh()
-    } catch (e: any) {
-      setError(e.message ?? '저장 중 오류가 발생했습니다.')
-      setSubmitting(false)
-    }
+    })
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!isEdit) return
     if (!confirm('이 회차를 삭제하시겠습니까?\n\n(소프트 삭제 — 관련 데이터는 유지됨)')) {
       return
     }
-    setDeleting(true)
     setError(null)
-    try {
-      const res = await fetch(`/api/admin/offline/sessions/${initial!.id}`, { method: 'DELETE' })
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}))
-        throw new Error(j.error || `삭제 실패 (HTTP ${res.status})`)
+    startDelete(async () => {
+      const result = await deleteSessionAction(initial!.id)
+      if (!result.ok) {
+        setError(result.error)
+        return
       }
       router.push(`/admin/offline/programs/${programId}/sessions`)
-      router.refresh()
-    } catch (e: any) {
-      setError(e.message ?? '삭제 중 오류가 발생했습니다.')
-      setDeleting(false)
-    }
+    })
   }
 
   const inputClass =

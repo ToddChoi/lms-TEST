@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   OFFLINE_PROGRAM_TYPE_LABEL,
@@ -10,6 +10,11 @@ import {
   type OfflineProgramStatus,
 } from '@/types/database'
 import { Save, Trash2, Plus, X } from 'lucide-react'
+import {
+  createProgramAction,
+  updateProgramAction,
+  deleteProgramAction,
+} from '@/app/admin/offline/programs/actions'
 
 interface CategoryOption {
   id: string
@@ -71,8 +76,8 @@ function autoSlug(title: string): string {
 export function ProgramForm({ initial, categories }: Props) {
   const router = useRouter()
   const [form, setForm] = useState<FormState>(fromInitial(initial))
-  const [submitting, setSubmitting] = useState(false)
-  const [deleting, setDeleting] = useState(false)
+  const [submitting, startSubmit] = useTransition()
+  const [deleting, startDelete] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
   const isEdit = !!initial
@@ -95,7 +100,7 @@ export function ProgramForm({ initial, categories }: Props) {
     setForm((prev) => ({ ...prev, [key]: prev[key].filter((_, idx) => idx !== i) }))
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
 
@@ -113,9 +118,8 @@ export function ProgramForm({ initial, categories }: Props) {
       return
     }
 
-    setSubmitting(true)
-    try {
-      const body = {
+    startSubmit(async () => {
+      const input = {
         ...form,
         category_id: form.category_id || null,
         thumbnail_url: form.thumbnail_url || null,
@@ -125,45 +129,31 @@ export function ProgramForm({ initial, categories }: Props) {
         what_you_learn: form.what_you_learn.filter((s) => s.trim()),
         requirements: form.requirements.filter((s) => s.trim()),
       }
-      const res = await fetch(
-        isEdit ? `/api/admin/offline/programs/${initial!.id}` : '/api/admin/offline/programs',
-        {
-          method: isEdit ? 'PUT' : 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        }
-      )
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}))
-        throw new Error(j.error || `요청 실패 (HTTP ${res.status})`)
+      const result = isEdit
+        ? await updateProgramAction(initial!.id, input)
+        : await createProgramAction(input)
+      if (!result.ok) {
+        setError(result.error)
+        return
       }
       router.push('/admin/offline/programs')
-      router.refresh()
-    } catch (e: any) {
-      setError(e.message ?? '저장 중 오류가 발생했습니다.')
-      setSubmitting(false)
-    }
+    })
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!isEdit) return
     if (!confirm(`"${initial!.title}" 프로그램을 삭제하시겠습니까?\n\n(소프트 삭제 — 회차/신청 데이터는 유지됨)`)) {
       return
     }
-    setDeleting(true)
     setError(null)
-    try {
-      const res = await fetch(`/api/admin/offline/programs/${initial!.id}`, { method: 'DELETE' })
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}))
-        throw new Error(j.error || `삭제 실패 (HTTP ${res.status})`)
+    startDelete(async () => {
+      const result = await deleteProgramAction(initial!.id)
+      if (!result.ok) {
+        setError(result.error)
+        return
       }
       router.push('/admin/offline/programs')
-      router.refresh()
-    } catch (e: any) {
-      setError(e.message ?? '삭제 중 오류가 발생했습니다.')
-      setDeleting(false)
-    }
+    })
   }
 
   const inputClass =
