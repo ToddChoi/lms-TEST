@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getStripeServer } from '@/lib/stripe'
+import { isEnrollable } from '@/lib/utils'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -23,10 +24,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: '강좌 ID가 필요합니다.' }, { status: 400 })
   }
 
-  // 강좌 정보 조회
+  // 강좌 정보 조회 — P1-2 (2026-05-15): enroll_start/end/learn_end 추가.
+  // enroll_*: 모집 기간 서버 검증 / learn_end: webhook 에서 expires_at 설정용 metadata.
   const { data: rawCourse } = await supabase
     .from('courses')
-    .select('id, title, description, price, status')
+    .select('id, title, description, price, status, enroll_start, enroll_end, learn_end')
     .eq('id', course_id)
     .single()
   const course = rawCourse as unknown as {
@@ -35,6 +37,9 @@ export async function POST(request: Request) {
     description: string | null
     price: number
     status: string
+    enroll_start: string | null
+    enroll_end: string | null
+    learn_end: string | null
   } | null
 
   if (!course) {
@@ -48,6 +53,15 @@ export async function POST(request: Request) {
   if (course.price <= 0) {
     return NextResponse.json(
       { error: '무료 강좌는 결제할 수 없습니다.' },
+      { status: 400 }
+    )
+  }
+
+  // P1-2 — 모집 기간 서버 검증 (UI 우회 방지).
+  // 무료 신청과 동일 정책 (isEnrollable).
+  if (!isEnrollable(course.enroll_start, course.enroll_end)) {
+    return NextResponse.json(
+      { error: '현재 결제 신청 가능한 기간이 아닙니다.' },
       { status: 400 }
     )
   }
@@ -121,6 +135,9 @@ export async function POST(request: Request) {
         payment_id: paymentId,
         user_id: user.id,
         course_id: course.id,
+        // P1-2 — webhook 에서 expires_at 으로 사용 (무료 enroll 과 정책 통일).
+        // null 인 경우 (무제한 학습 기간) 빈 문자열로 전송.
+        learn_end: course.learn_end ?? '',
       },
       customer_email: user.email ?? undefined,
     })

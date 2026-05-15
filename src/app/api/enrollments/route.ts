@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import type { Database } from '@/types/database'
 import { sendEmail } from '@/lib/email/send'
 import { EnrollmentEmail } from '@/lib/email/templates/enrollment'
+import { isEnrollable } from '@/lib/utils'
 
 export async function POST(request: Request) {
   const cookieStore = cookies()
@@ -54,6 +55,15 @@ export async function POST(request: Request) {
   // 유료 강좌는 결제 플로우로 (Phase 6)
   if (course.price > 0) {
     return NextResponse.json({ error: '유료 강좌는 결제 후 수강 신청 가능합니다.' }, { status: 400 })
+  }
+
+  // P1-2 (2026-05-15) — 모집 기간 서버 검증.
+  // UI 가 버튼을 숨겨도 직접 POST 가능 → API 차원에서 차단.
+  if (!isEnrollable(course.enroll_start, course.enroll_end)) {
+    return NextResponse.json(
+      { error: '현재 수강 신청 가능한 기간이 아닙니다.' },
+      { status: 400 }
+    )
   }
 
   // 사전 조회 — UX 힌트용 (이미 active 인지). 정합성은 아래 upsert 가 책임짐.

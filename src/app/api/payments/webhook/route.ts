@@ -89,6 +89,24 @@ export async function POST(request: Request) {
         // 수강 등록 — Stripe webhook 재전송 대비 idempotent upsert.
         // UNIQUE(user_id, course_id) 제약을 활용해 onConflict 시 status='active' 로
         // 갱신. 중복 INSERT 로 23505 → 500 → Stripe 무한 재시도 루프를 방지.
+        //
+        // P1-2 (2026-05-15) — expires_at 도 함께 설정 (무료 enroll 과 정책 통일).
+        // checkout 에서 metadata.learn_end 로 전달 (없으면 빈 문자열).
+        // metadata 에 learn_end 가 없는 옛 결제 (이전 코드) → 안전하게 course 재조회.
+        let expiresAt: string | null = null
+        if (metadata.learn_end) {
+          expiresAt = new Date(metadata.learn_end).toISOString()
+        } else {
+          // fallback — metadata 에 없으면 DB 에서 재조회 (옛 결제 webhook 재시도 대응)
+          const { data: rawCourse } = await admin
+            .from('courses')
+            .select('learn_end')
+            .eq('id', courseId)
+            .maybeSingle()
+          const learnEnd = (rawCourse as { learn_end: string | null } | null)?.learn_end
+          expiresAt = learnEnd ? new Date(learnEnd).toISOString() : null
+        }
+
         const { error: upsertErr } = await (admin as any)
           .from('enrollments')
           .upsert(
@@ -97,6 +115,7 @@ export async function POST(request: Request) {
               course_id: courseId,
               status: 'active',
               enrolled_at: new Date().toISOString(),
+              expires_at: expiresAt,
             },
             { onConflict: 'user_id,course_id' }
           )
