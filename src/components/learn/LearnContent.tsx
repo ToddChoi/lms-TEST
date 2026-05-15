@@ -9,7 +9,17 @@ import { NotesPanel } from '@/components/learn/NotesPanel'
 import { ConfirmDialogHost } from '@/components/ui/ConfirmDialog'
 import { formatDuration } from '@/lib/utils'
 
-interface LessonItem {
+/**
+ * P1-3 (2026-05-15) — DTO 분리.
+ * 사이드바용 타입 (SidebarLessonItem) 에는 video_url 없음.
+ * 재생 중 현재 lesson 만 video_url (signed URL) 포함.
+ *
+ * 이전: 전체 sections 의 lessons 에 video_url 이 hydration data 로 노출됨.
+ *       private bucket 경로 또는 외부 영상 URL 이 직접 client 에서 보임.
+ */
+
+/** 현재 재생 중 lesson — VideoPlayer 에 전달. signed URL. */
+interface CurrentLesson {
   id: string
   title: string
   video_url: string | null
@@ -18,19 +28,27 @@ interface LessonItem {
   sort_order: number
 }
 
+/** 사이드바용 — video_url 없음. */
+interface SidebarLessonItem {
+  id: string
+  title: string
+  duration: number
+  is_preview: boolean
+  sort_order: number
+  is_completed: boolean
+  watched_seconds: number
+}
+
 interface SectionWithProgress {
   id: string
   title: string
   sort_order: number
-  lessons: Array<LessonItem & {
-    is_completed: boolean
-    watched_seconds: number
-  }>
+  lessons: SidebarLessonItem[]
 }
 
 interface Props {
   courseId: string
-  currentLesson: LessonItem
+  currentLesson: CurrentLesson
   sections: SectionWithProgress[]
   currentProgress: { watched_seconds: number; is_completed: boolean } | null
   isEnrolled: boolean

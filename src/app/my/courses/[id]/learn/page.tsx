@@ -38,8 +38,10 @@ export default async function LearnPage({ params, searchParams }: Props) {
   if (!course) notFound()
 
   // 섹션 + 레슨 목록 — soft-deleted lesson 은 client-side 필터링.
+  // P1-3 (2026-05-15): 사이드바용 SELECT 에서 video_url 제거 — 전체 강좌의 영상 URL 이
+  // hydration data 로 노출되던 문제 해결. 현재 재생 중 lesson 의 video_url 은 별도 fetch.
   type LessonRaw = {
-    id: string; title: string; video_url: string | null
+    id: string; title: string
     duration: number; is_preview: boolean; sort_order: number
     deleted_at: string | null
   }
@@ -47,7 +49,7 @@ export default async function LearnPage({ params, searchParams }: Props) {
 
   const { data: rawSections } = await supabase
     .from('sections')
-    .select('id, title, sort_order, lessons (id, title, video_url, duration, is_preview, sort_order, deleted_at)')
+    .select('id, title, sort_order, lessons (id, title, duration, is_preview, sort_order, deleted_at)')
     .eq('course_id', params.id)
     .order('sort_order')
   const rawSectionsList = (rawSections as unknown as SectionRaw[] | null) ?? []
@@ -119,9 +121,19 @@ export default async function LearnPage({ params, searchParams }: Props) {
   // row 가 있을 수 있음. isEnrollmentActive 가 status + 만료 동시 검증.
   const isEnrolled = isEnrollmentActive(enrollment)
 
-  // ★ 보안: course-videos 가 private 버킷이라 video_url 을 직접 노출하면 재생 안 됨.
+  // ★ 보안 (P1-3): course-videos 가 private 버킷이라 video_url 을 직접 노출하면 재생 안 됨.
   // 권한 검증 후 짧은 TTL 의 signed URL 로 변환해 client 에 전달.
   // 권한: 본인이 수강 중 OR 미리보기 강의 OR 관리자/강사. 그 외에는 null.
+  //
+  // 변경: 사이드바 SELECT 에서 video_url 제거 → 현재 lesson 의 raw video_url 만 별도 fetch.
+  // 전체 강좌 영상 URL 이 hydration data 로 노출되던 문제 해결.
+  const { data: rawCurrentLesson } = await supabase
+    .from('lessons')
+    .select('video_url')
+    .eq('id', currentLesson.id)
+    .maybeSingle()
+  const rawVideoUrl = (rawCurrentLesson as { video_url: string | null } | null)?.video_url ?? null
+
   const { data: rawSelfProfile } = user
     ? await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
     : { data: null }
@@ -130,7 +142,7 @@ export default async function LearnPage({ params, searchParams }: Props) {
     isEnrolled || (selfRole && ['admin', 'superadmin', 'instructor'].includes(selfRole))
   const signedVideoUrl =
     currentLesson.is_preview || canPlayLockedLesson
-      ? await signVideoUrl(currentLesson.video_url)
+      ? await signVideoUrl(rawVideoUrl)
       : null
   const currentLessonForClient = { ...currentLesson, video_url: signedVideoUrl }
 
